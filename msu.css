@@ -1,0 +1,105 @@
+a, a > code {
+  color: #2b5d7d;
+  font-weight: bold;
+  border-bottom: 1px dotted #2b5d7d;
+  text-decoration: none;
+  transition: all .2s ease-in-out
+}
+
+a:hover { 
+  font-size: 1.05em; 
+  border-bottom: 1px solid #2b5d7d;
+}
+
+.highlight {
+    background-color: rgba(252,203,5,.2);
+}
+
+.remark-slide-number { font-size: 0.6em; }
+
+.remark-code-line-highlighted { background-color: #e0ad12 ; }
+
+.remark-slide-content {
+  border-right: 11px solid #003f7f;
+  border-left: 11px solid #003f7f;
+  padding: 1em 2em 1em 2em
+}
+
+.remark-slide-content > h1 {
+  font-weight: normal;
+  margin-top: 10px;
+  margin-left: -00px;
+}
+
+.remark-slide-content > h2, .pull-left > h2, .pull-right > h2 {
+  font-size: 35px;
+}
+.remark-slide-content > h3, .pull-left > h3, .pull-right > h3 {
+  font-size: 25px;
+}
+
+h1, h2, h3 {
+  font-weight: normal;
+  color: #003f7f;
+}
+
+.inverse {
+  border-left: 11px solid #e0ad12;
+  border-right: 11px solid #e0ad12;
+  background-color: #003f7f;
+  color: #d6d6d6;
+}
+
+.inverse h1, .inverse h2, .inverse h3 {
+  color: #f3f3f3;
+}
+
+table {
+  margin: auto;
+  font-size: 90%;
+  border-top: 1px solid #666;
+  border-bottom: 1px solid #666;
+}
+
+.center {
+  align-content: center;  
+}
+
+.right {
+  align-content: right;  
+}
+
+.left {
+  align-content: left;  
+}
+
+.shrink {
+  margin: auto;
+  width: 90%;
+}
+
+.enlarge{
+  margin: auto;
+  width: 110%;
+}
+
+.title-slide {
+	background-color: #003f7f;
+  background-image: url(MSU-horiz-reverse.png);
+	background-position: center top 20px;
+	background-size: 30%;
+	border-bottom: 0 solid  #522D80
+}
+
+.left-text {
+  width: 60%;
+  height: 92%;
+  float: left;
+}
+.right-plot {
+  width: 38%;
+  float: right;
+  padding-left: 1%;
+}
+
+.red { color: red;}

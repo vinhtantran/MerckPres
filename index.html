@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+  <head>
+    <title>PhD Dissertation - 2019 Joint Statistical Meeting  Monothetic Cluster Analysis with Extension to Functional Data</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Tan Tran  Advisor: Dr. Mark Greenwood" />
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
+    <link href="libs/remark-css/tamu-fonts.css" rel="stylesheet" />
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link rel="stylesheet" href="msu.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <small>PhD Dissertation - 2019 Joint Statistical Meeting</small><br/><br/>Monothetic Cluster Analysis with Extension to Functional Data
+### Tan Tran <br/>Advisor: Dr. Mark Greenwood
+### ?? July, 2019
+
+---
+
+
+
+
+
+
+# Introduction
+## Clustering
+
+* Unsupervised learning techniques for grouping (multivariate) responses with the goal of:
+  * homogeneity — internal cohesion
+  * separation — external isolation
+  
+* When to use clustering:
+  * Find underlying patterns where little or no information about the data are known or to compare to known groups
+  * Prediction of cluster membership based on the common characteristics of the clusters
+  
+* "A classification of a set of objects is not like a scientific theory and should perhaps be judged largely on its usefulness [...]." (Everitt, Landau, Leese, et al., 2011)
+
+???
+
+Test the font size
+
+---
+## Two Clustering Techniques
+
+* Optimization clustering techniques
+
+  * The number of clusters, `\(K\)`, have to be pre-determined
+  * Move the objects between clusters as long as it improves the criterion
+  * `\(k\)`-means and partitioning around medoids (PAM, or `\(k\)`-medoids) are two examples of this technique
+  
+* Hierarchical clustering techniques
+
+  * Distance measures between objects and between clusters must be defined
+    * single linkage, complete linkage, Ward's method, etc.
+  * Objects are fused together (agglomerative), or separated from each 
+other (divisive) in each step based on the distance metric
+  * The result is usually presented by dendrogram
+
+---
+## An Example: `\(k\)`-Means
+
+Data from Barbour, Kosa, Komori, et al. (2017) cerebro-spinal fluid (CSF) biomarker data 
+set with `\(n = 225\)` subjects. The variables of interest are the standardized log ratios of 22 biomarkers (proteins).
+* Multiple Sclerosis (MS) and non-MS patients are known
+* `\(Q = 2\)` proteins are displayed to visually demonstrate the method
+
+&lt;img src="figure/kmeanhier-1.png" width="45%" style="display: block; margin: auto;" /&gt;
+
+---
+
+## An Example: Hierarchical with Ward's Method
+
+&lt;img src="figure/hclust-1.png" width="50%" /&gt;&lt;img src="figure/hclust-2.png" width="50%" /&gt;
+
+---
+
+## Polythetic vs. Monothetic Clustering
+
+* Popular methods like k-means and Ward's are **polythetic methods**
+  * Clustered using the combined information of variables
+  * Observations in a cluster are similar "on average" but may share no common characteristics
+
+* There are also **monothetic divisive methods**
+  * Data are bi-partitioned based on values of one variable at a time
+  * Observations share common characteristics: in the same interval or category
+
+---
+
+## Monothetic Clustering Algorithm
+
+* Introduced in Chavent (1998) and Piccarreta and Billari (2007), inspired by classification and regression trees (Breiman, Friedman, Stone, et al., 1984)
+
+* A global criterion called **inertia** for a cluster `\(C_k\)` is defined as 
+`$$I(C_k) = \frac{1}{n_k} \sum_{(i, j) \in C_k, i &gt; j}  d^2(\mathbf{y_i},\mathbf{y_j})$$`
+where `\(d(\mathbf{y_i},\mathbf{y_j})\)` is the distance between observations `\(\mathbf{y_i}\)` and `\(\mathbf{y_j}\)` and `\(n_k\)` is the cluster size
+
+* Let `\(s\)` be a binary split dividing a cluster `\(C_k\)` into two clusters `\(C_{kL}\)` and `\(C_{kR}\)`. The decrease in inertia is 
+`$$\Delta (s, C_k) = I(C_k) - I(C_{kL}) - I(C_{kR})$$`
+
+* The best split is selected as
+$$s^*(C_k) = \arg \max_s {\Delta I(s,C_k)} $$
+
+
+---
+
+## Properties of Monothetic Clustering
+* Inertia is a global optimization criterion
+
+* Bi-partition observations based on one variable at a time, making the method monothetic
+
+* Defines rules for cluster membership
+  * Easy classification of new members
+  
+* For the CSF data, monothetic clustering can be useful to allow classification into groups with shared characteristics that *might* relate to disease presence/absence
+
+???
+
+Shared characteristics in the second bullet.
+
+---
+
+## Monothetic Clustering on the CSF Data
+
+&lt;img src="figure/monodemo2-1.png" width="50%" /&gt;&lt;img src="figure/monodemo2-2.png" width="50%" /&gt;
+
+???
+
+QUICK!!!
+
+---
+
+## One more split
+&lt;img src="figure/monodemo3-1.png" width="50%" /&gt;&lt;img src="figure/monodemo3-2.png" width="50%" /&gt;
+
+???
+
+QUICK!!!
+
+---
+
+# Clustering Functional Data
+## Arctic Sea Ice Extent Data
+
+* Arctic Sea ice extent data set has been collected by National Snow &amp; Ice Data Center since November 1978 (Fetterer, Knowles, Meier, et al., 2018)
+
+&lt;img src="figure/sat-1.png" width="80%" style="display: block; margin: auto;" /&gt;
+
+???
+
+1987 change
+
+---
+
+## Raw Arctic Ice Extent
+
+&lt;img src="figure/iceextent-1.png" width="100%" /&gt;
+
+???
+
+Decreasing trend AND seasonal, dip...
+
+---
+## Functional Data
+
+* When measurements were taken over some ordered index, such as time, frequency, or space (Ramsay and Silverman, 2005)
+  * Responses are continuous as a function of the index
+  * Possibly high frequency of observations and smooth underlying process or observations
+  
+* Observations are converted to functional data using basis functions:
+  * **B-splines basis**, Fourier basis, Wavelets, etc.
+  
+* Penalized B-splines with knots at every day optimized with cross-validation for each curve
+
+* Ice extent area in a year can be expressed as a function of time, `\(y_i(t)\)`
+  * where `\(i\)` is the year, `\(t\)` is the day of year, and `\(y\)` is the ice extent at that time point
+
+---
+
+## Smoothed and Interpolated Curves
+
+&lt;img src="figure/smootheny-1.png" width="100%" /&gt;
+
+???
+
+Penalized B-splines with knots at every day to optimized for **each curve**
+
+---
+
+## Clustering Functional Data
+
+* The `\(L_2\)` distance matrix can be be calculated and used for non-functional clustering algorithms
+    `$$d(y_i, y_j) = \sqrt{\int_T [y_i(t) – y_j(t)]^2 dt}$$`
+
+* Monothetic clustering uses functional data in their discretized form
+  * Transform the data into functional presentations
+  * Data are then estimated to a common fine grid of `\(t\)`, `\(y_{it}\)` from `\(y_i(t)\)`
+  * Missing values are imputed and the data set is balanced with `\(t = 1, \ldots, 366\)` days for all years
+
+---
+## Monothetic Clustering Result
+
+* Evaluate functional data for each year, cluster years 
+    using the 366 "variables" (days) each year
+* Splitting the data based on one variable (day) at a time
+* Have to deal with many equivalent splits possible at "neighboring" 
+    variables    
+    
+&lt;img src="figure/monosplit-1.png" width="50%" /&gt;&lt;img src="figure/monosplit-2.png" width="50%" /&gt;
+
+???
+
+* Reason: because so smooth, close points have same info
+* Plot: High Jan, Low Jan, then High/low July and High/low July
+
+---
+## Partitioning Using Local Subregions
+
+* By aggregating over regions of time, we develop a new clustering 
+    algorithm related to monothetic clustering that is more suited to 
+    functional data
+* PULS recursively bi-partitions functional data using only groups 
+    from subregions.
+* For each subregion `\([a_1, b_1], \ldots, [a_R, b_R]\)`, calculate an `\(L_2\)` 
+    distance matrix
+    `$$d_R(y_i, y_j) = \sqrt{\int_{a_r}^{b_r} [y_i(t) – y_j(t)]^2 dt},$$`
+* Apply a clustering algorithm (PAM, Ward's method, etc.) to create 
+    2-group cluster solutions in `\(R\)` subregions
+* Pick the solution that maximizes the difference in the global inertia 
+* Recursively apply to the newly created clusters
+    
+---
+## Partitioning Using Local Subregions Result
+
+
+
+&lt;img src="figure/pulssplit-1.png" width="50%" /&gt;&lt;img src="figure/pulssplit-2.png" width="50%" /&gt;
+
+---
+## Comparison of Results and Cluster Prediction
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Name &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; PULS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; MonoClust &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;vertical-align: top !important;" rowspan="2"&gt; High Jan, High Jul &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1979-.red[**1981**], 1983-1984, &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1979-1981, 1983-1986, 1989, &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   
+   &lt;td style="text-align:left;"&gt; 1986, 1989, 1992, 1994, 1996 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1992-.red[**1994**], 1996 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;vertical-align: top !important;" rowspan="2"&gt; High Jan, Low Jul &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1985, 1991, 1993, 1995, &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1991, 1995, &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   
+   &lt;td style="text-align:left;"&gt; .red[**1997**]-2004 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1997-.red[**2000**]-2004 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Low Jan, High Jul &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2005, 2008-2010, .red[**2013**], 2014 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2005, 2008-2010, .red[**2013**], 2014 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Low Jan, Low Jul &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2007, .red[**2011**], 2012, 2015-2017 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2007, .red[**2011**], 2012, 2015-2017 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+???
+
+* Medoid year in bold
+* Very similar, last two clusters are identical
+* 1985, 1993 (1) to (PULS 2)
+
+--
+
+* One year in each decade was randomly withheld from the test data set: 
+  * 1982, 1990, 2006, 2018
+* Predict the cluster from monothetic clustering's splitting rule tree
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; High Jan, High Jul &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; High Jan, Low Jul &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Low Jan, High Jul &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Low Jan, Low Jan &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1982 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1990 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2006 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2018 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+???
+
+* Monothetic clustering has clear rule so can predict
+
+---
+
+## Simulation Study
+* Compare the performance of various clustering techniques on functional data
+  * Monothetic clustering, PAM, and Ward's method
+  * PULS with PAM and PULS with Ward's method on on five subregions
+  
+&lt;img src="figure/simulcurves-1.png" width="100%" /&gt;
+
+* Corrected Rand Index (Rand, 1971) and Pseudo-R2 are used to evaluate
+* PULS and monothetic clustering both perform better than PAM and competitive with Ward's method
+* Ward's method works well both within PULS and by itself
+
+---
+
+
+## Conclusions 
+
+* Monothetic clustering bi-partitions data at the values of one variable at a time
+
+  * Clusters share the same characteristics from split variables
+  * Can interpret the resulting clusters
+  * Can predict the cluster a new observation would fall into
+  
+* R packages `monoclust` and `PULS` are available on Github
+
+--
+
+## Possible Extensions
+
+* Sparse clustering (Witten and Tibshirani, 2010) can be applied to functional data to "weight" the contributions of variables (days) to the clustering process
+
+* Monothetic Exhaustive search is slow, heuristic search algorithms may help with some trade-offs
+  * Results of best split for each variable could be stored so they won't unnecessarily repeat
+
+* Clustering the derivative of the Arctic ice extent data
+
+---
+
+## References I
+
+Barbour, C, P. Kosa, M. Komori, M. Tanigawa, R. Masvekar, T. Wu,
+K. Johnson, P. Douvaras, V. Fossati, R. Herbst, Y. Wang, K. Tan,
+M. Greenwood, and B. Bielekova (2017). "Molecular-based diagnosis
+of multiple sclerosis and its progressive stage". In: _Annals of
+Neurology_ 82.5, pp. 795-812. ISSN: 03645134. DOI:
+[10.1002/ana.25083](https://doi.org/10.1002%2Fana.25083).
+
+Breiman, L, J. Friedman, C. J. Stone, and R. Olshen (1984).
+_Classification and Regression Trees_. 1st ed. Chapman and
+Hall/CRC. ISBN: 0412048418.
+
+Chavent, M. (1998). "A monothetic clustering method". In: _Pattern
+Recognition Letters_ 19.11, pp. 989-996. ISSN: 01678655. DOI:
+[10.1016/S0167-8655(98)00087-7](https://doi.org/10.1016%2FS0167-8655%2898%2900087-7).
+
+Everitt, B. S, S. Landau, M. Leese, and D. Stahl (2011). _Cluster
+Analysis_. 5th ed. Wiley, p. 346. ISBN: 0470749911.
+
+Fetterer, F., F. Knowles, W. Meier, M. Savoie, and A. K. Windnagel
+(2018). _Sea Ice Index, Version 3_. DOI:
+[10.7265/N5K072F8](https://doi.org/10.7265%2FN5K072F8). URL:
+[https://nsidc.org/data/g02135](https://nsidc.org/data/g02135)
+(visited on 2018).
+
+---
+
+## References II
+
+Piccarreta, R. and F. C. Billari (2007). "Clustering work and
+family trajectories by using a divisive algorithm". In: _Journal
+of the Royal Statistical Society: Series A (Statistics in
+Society)_ 170.4, pp. 1061-1078. ISSN: 0964-1998. DOI:
+[10.1111/j.1467-985X.2007.00495.x](https://doi.org/10.1111%2Fj.1467-985X.2007.00495.x).
+
+Ramsay, J. O. and B. W. Silverman (2005). _Functional data
+analysis_. Springer, p. 426. ISBN: 9780387400808.
+
+Rand, W. M. (1971). "Objective Criteria for the Evaluation of
+Clustering Methods". In: _Journal of the American Statistical
+Association_ 66, pp. 846-850. ISSN: 0162-1459. DOI:
+[10.1080/01621459.1971.10482356](https://doi.org/10.1080%2F01621459.1971.10482356).
+
+Witten, D. M. and R. Tibshirani (2010). "A framework for feature
+selection". In: _American Statistician_ 105.490, pp. 713-726.
+ISSN: 0162-1459. DOI:
+[10.1198/jasa.2010.tm09415.A](https://doi.org/10.1198%2Fjasa.2010.tm09415.A).
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();</script>
+
+<script>
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
