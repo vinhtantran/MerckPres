@@ -1,7 +1,7 @@
 ---
 title: "<small>PhD Dissertation - 2019 Joint Statistical Meeting</small><br/><br/>Monothetic Cluster Analysis with Extension to Functional Data"
 author: "Tan Tran <br/>Advisor: Dr. Mark Greenwood"
-date: "?? July, 2019"
+date: "29, 31 July, 2019"
 bibliography: "mybib.bib"
 biblio-style: "apalike"
 link-citations: true
