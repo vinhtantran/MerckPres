@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
   <head>
-    <title>PhD Dissertation - 2019 Joint Statistical Meeting  Monothetic Cluster Analysis with Extension to Functional Data</title>
+    <title>Presentation at Merck  An Overview of Monothetic Cluster Analysis and Two Collaboration Projects</title>
     <meta charset="utf-8" />
-    <meta name="author" content="Tan Tran  Advisor: Dr. Mark Greenwood" />
+    <meta name="author" content="Tan Tran, PhD" />
+    <meta name="date" content="2019-09-12" />
     <link href="libs/remark-css/default.css" rel="stylesheet" />
     <link href="libs/remark-css/tamu-fonts.css" rel="stylesheet" />
     <script src="libs/kePrint/kePrint.js"></script>
@@ -13,9 +14,9 @@
     <textarea id="source">
 class: center, middle, inverse, title-slide
 
-# <small>PhD Dissertation - 2019 Joint Statistical Meeting</small><br/><br/>Monothetic Cluster Analysis with Extension to Functional Data
-### Tan Tran <br/>Advisor: Dr. Mark Greenwood
-### 29, 31 July, 2019
+# <small>Presentation at Merck</small><br/><br/>An Overview of Monothetic Cluster Analysis and Two Collaboration Projects
+### Tan Tran, PhD
+### September 12, 2019
 
 ---
 
@@ -97,7 +98,7 @@ set with `\(n = 225\)` subjects. The variables of interest are the standardized 
 where `\(d(\mathbf{y_i},\mathbf{y_j})\)` is the distance between observations `\(\mathbf{y_i}\)` and `\(\mathbf{y_j}\)` and `\(n_k\)` is the cluster size
 
 * Let `\(s\)` be a binary split dividing a cluster `\(C_k\)` into two clusters `\(C_{kL}\)` and `\(C_{kR}\)`. The decrease in inertia is 
-`$$\Delta (s, C_k) = I(C_k) - I(C_{kL}) - I(C_{kR})$$`
+`$$\Delta I(s, C_k) = I(C_k) - I(C_{kL}) - I(C_{kR})$$`
 
 * The best split is selected as
 $$s^*(C_k) = \arg \max_s {\Delta I(s,C_k)} $$
@@ -300,7 +301,7 @@ Penalized B-splines with knots at every day to optimized for **each curve**
    &lt;th style="text-align:right;"&gt; High Jan, High Jul &lt;/th&gt;
    &lt;th style="text-align:right;"&gt; High Jan, Low Jul &lt;/th&gt;
    &lt;th style="text-align:right;"&gt; Low Jan, High Jul &lt;/th&gt;
-   &lt;th style="text-align:right;"&gt; Low Jan, Low Jan &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Low Jan, Low Jul &lt;/th&gt;
   &lt;/tr&gt;
  &lt;/thead&gt;
 &lt;tbody&gt;
@@ -332,78 +333,189 @@ Penalized B-splines with knots at every day to optimized for **each curve**
 
 ---
 
+## Other Problems (Not Mentioned Here)
 
-## Conclusions 
+* Choosing the number of clusters in monothetic clustering
+  * A hybrid method of permutation test and an error-based method such as average silhouette width or pseudo-F
 
-* Monothetic clustering bi-partitions data at the values of one variable at a time
-
-  * Clusters share the same characteristics from split variables
-  * Can interpret the resulting clusters
-  * Can predict the cluster a new observation would fall into
+* Application on data with circular variables
+  * Dissimilarity measures
+  * Visualizations
   
 * R packages `monoclust` and `PULS` are available on Github
 
---
+---
 
 ## Possible Extensions
 
-* Sparse clustering (Witten and Tibshirani, 2010) can be applied to functional data to "weight" the contributions of variables (days) to the clustering process
-
-* Monothetic Exhaustive search is slow, heuristic search algorithms may help with some trade-offs
-  * Results of best split for each variable could be stored so they won't unnecessarily repeat
-
 * Clustering the derivative of the Arctic ice extent data
 
----
+* Consider the Arctic ice extent data as circular functional data
 
-## References I
+* Search algorithms improvement
 
-Barbour, C, P. Kosa, M. Komori, M. Tanigawa, R. Masvekar, T. Wu,
-K. Johnson, P. Douvaras, V. Fossati, R. Herbst, Y. Wang, K. Tan,
-M. Greenwood, and B. Bielekova (2017). "Molecular-based diagnosis
-of multiple sclerosis and its progressive stage". In: _Annals of
-Neurology_ 82.5, pp. 795-812. ISSN: 03645134. DOI:
-[10.1002/ana.25083](https://doi.org/10.1002%2Fana.25083).
+&lt;img src="figure/icecirpuls-1.png" width="50%" /&gt;
 
-Breiman, L, J. Friedman, C. J. Stone, and R. Olshen (1984).
-_Classification and Regression Trees_. 1st ed. Chapman and
-Hall/CRC. ISBN: 0412048418.
 
-Chavent, M. (1998). "A monothetic clustering method". In: _Pattern
-Recognition Letters_ 19.11, pp. 989-996. ISSN: 01678655. DOI:
-[10.1016/S0167-8655(98)00087-7](https://doi.org/10.1016%2FS0167-8655%2898%2900087-7).
-
-Everitt, B. S, S. Landau, M. Leese, and D. Stahl (2011). _Cluster
-Analysis_. 5th ed. Wiley, p. 346. ISBN: 0470749911.
-
-Fetterer, F., F. Knowles, W. Meier, M. Savoie, and A. K. Windnagel
-(2018). _Sea Ice Index, Version 3_. DOI:
-[10.7265/N5K072F8](https://doi.org/10.7265%2FN5K072F8). URL:
-[https://nsidc.org/data/g02135](https://nsidc.org/data/g02135)
-(visited on 2018).
 
 ---
+# Statistical Consultation Collaborations: Power Analysis
 
-## References II
+* A research grant proposal to the USDA ARS Pulse Crop Health Initiative Research Project Plan
 
-Piccarreta, R. and F. C. Billari (2007). "Clustering work and
-family trajectories by using a divisive algorithm". In: _Journal
-of the Royal Statistical Society: Series A (Statistics in
-Society)_ 170.4, pp. 1061-1078. ISSN: 0964-1998. DOI:
-[10.1111/j.1467-985X.2007.00495.x](https://doi.org/10.1111%2Fj.1467-985X.2007.00495.x).
+* Principal Investigator: Mary Miles, PhD, FACSM, of Montana State University
 
-Ramsay, J. O. and B. W. Silverman (2005). _Functional data
-analysis_. Springer, p. 426. ISBN: 9780387400808.
+* My role: Statistician, involved in designing the analysis plan and statistical power analysis for the project
 
-Rand, W. M. (1971). "Objective Criteria for the Evaluation of
-Clustering Methods". In: _Journal of the American Statistical
-Association_ 66, pp. 846-850. ISSN: 0162-1459. DOI:
-[10.1080/01621459.1971.10482356](https://doi.org/10.1080%2F01621459.1971.10482356).
+* Was aprroved for funding last week
 
-Witten, D. M. and R. Tibshirani (2010). "A framework for feature
-selection". In: _American Statistician_ 105.490, pp. 713-726.
-ISSN: 0162-1459. DOI:
-[10.1198/jasa.2010.tm09415.A](https://doi.org/10.1198%2Fjasa.2010.tm09415.A).
+---
+## Objectives
+
+1. **Determine the impact of pulse (green lentil and black bean) consumption on postprandial triglyceride (TG) and inflammation responses to a high-fat meal challenge.**
+
+2. Determine the extent to which the gut microbiome and changes in the gut microbiome induced by pulse consumption influence health impacts 
+
+3. Measure metabolomic profiles to elucidate underlying mechanisms linking pulse consumption to improved health.
+
+---
+## Study Plan
+
+![](figure/studyplan1.png)
+
+---
+## Collaboration
+
+1. Learn the study
+  * Biological terminologies
+  * Microbiome data analysis
+  * Metabolomics data analysis
+
+2. Prioritize the objective
+  * Objective 1
+  * Objectives 2 and 3 are explanatory
+  
+3. Design the analysis plan
+  * Obj. 1: one-sided t-test with possible multiple testings
+  * Obj. 2: PLS-DA and variable importance to specify species differentiate the two treatment groups
+  * Obj. 3: untargeted analysis using XCMS and mummichog
+  
+4. Power analysis based on Objective 1
+  * Budget limit: can only recruit 36 to 48 people
+
+---
+## Determine the Effect Size
+
+* There was a pilot study with similar design
+  * Two groups of participants: high fat responder (n = 22) and low fat responder (n = 18)
+  * The high fat meal challenge was done and the change in triglyceride levels were measured several times
+  * There was no 12-week experiment
+  
+&lt;img src="figure/generalplot-1.png" width="100%" /&gt;
+
+---
+## Max Triglyceride
+
+&lt;img src="figure/maxplot-1.png" width="100%" /&gt;
+
+
+
+&lt;table class="table table-striped" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; sample &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Mean &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Expected Mean After (50%) &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; SD &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Effect size &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; High and Low Responders &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 87.75 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 43.88 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 81.67 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.54 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; High Responders Only &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 134.23 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 67.11 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 83.68 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.80 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+## Power Analysis Plot with Effect Size d = 0.54
+
+&lt;img src="figure/obj1a-1.png" width="100%" /&gt;
+
+---
+## Another Power Analysis Calculation with d = 0.8
+
+* Another meeting happened and the researcher agreed to screen the participants further to not include people with low high fat responder.
+
+&lt;img src="figure/obj1c-1.png" width="100%" /&gt;
+
+---
+## Deliverables
+
+* An interactive report to assist the researcher to decide the sample size and the power of the test.
+
+---
+# Sensitivity of Analysis Paths in MetaboAnalyst
+
+* The Proteomics, Metabolomics and Mass Spectrometry Facility (Mass Spec) is a research lab in Montana State University
+
+* They are funded by INBRE and usually do LC-MS analysis for many metabolomics-related projects on campus
+
+* MetaboAnalyst (https://www.metaboanalyst.ca/) is the web application they use for statistical analysis of metabolomics data
+
+* My role as a statistician with computer science background
+  * Learn the analyses the webapp is doing
+  * Understand how biochemists have been using the webapp
+  * Suggest good sets of options that will give a statistically sound result
+  
+* This is an ongoing project
+
+---
+## Difficulties to Overcome
+
+* Chemical and bio-chemical terminologies
+
+* Mass spec procedures and associated data analysis problems
+
+* Dig into R packages used by MetaboAnalyst and reproduce the results offline
+
+* Learn how researchers have been using MetaboAnalyst and reproduce the results
+
+* Automate the analysis process
+
+* Do sensitivity analysis on various options
+
+---
+## Current Results
+
+* Used the metabolomics data set from Dr. Hunts' pilot dietary project
+  * Detect metabolites that differentiate the high and low fat responder groups
+  
+* Divided the analysis duties between domain experts and statistician
+  * The biochemists to run blanks to help with filtering process
+  * The statisticians to work on appropriate data transformations
+
+* A report on sensitivity analysis with an accompanied Shiny app
+  
+---
+## Future Work
+
+* Learn the assumptions made by Partial Least Squares Determinant Analysis (PLS-DA)
+
+* Give formal suggestions on what analysis paths to use for finding influencing features problems
+
+* Move on to a different set of mass spec data with a different analysis question
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>

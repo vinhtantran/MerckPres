@@ -1,0 +1,32 @@
+brewer2 <- brewer.pal(n = 2, "Dark2")[1:2]
+
+health <- read_csv("../supportingCode/presentation/data/DataForTan_12052017.csv")
+health.2.ratio <- health %>%
+  select(3, 4) %>% mutate_all(log) %>% mutate_all(scale) %>% mutate_all(as.numeric)
+
+health.2.ratio <- cbind(health.2.ratio, current_ms = health$current_ms)
+
+kmeans.health <- kmeans(health.2.ratio[,1:2], centers = 2)
+kmeans.membership <- ifelse(kmeans.health$cluster == 2, 1, 2)
+
+health.2.ratio <- cbind(health.2.ratio, kmeans.membership)
+
+misclassification <- health.2.ratio %>%
+  mutate(misclass = as.numeric(current_ms) == kmeans.membership) %>%
+  filter(!misclass)
+         
+kmeans.centroid <- tibble(`SL004672/SL003322` = kmeans.health$centers[,1],
+                          `SL000467/SL004857` = kmeans.health$centers[,2])
+ggplot(health.2.ratio, aes(x = `SL004672/SL003322`, 
+                                                 y = `SL000467/SL004857`, 
+                                                 color = factor(kmeans.membership))) + 
+  geom_point(aes(shape = health$current_ms), size=3) + 
+  geom_point(data = misclassification, aes(shape = misclass)) +
+  geom_point(data = kmeans.centroid, aes(color = factor(c(2, 1))), size = 4) +
+  scale_color_manual(guide = F, values = brewer2[2:1]) + 
+  scale_shape_discrete(name = "Disease condition", solid = F) +
+  labs(title = "k-means on CSF data",
+       x = "log(SL004672/SL003322)",
+       y = "log(SL000467/SL004857)")
+
+kmeans.health.plot

@@ -1,0 +1,18 @@
+ggplot(north) + 
+  geom_line(aes(x = yday, y = Extent, group = Year, color=Year)) +
+  xlab("Day") + ylab("Arctic Ice Extent (mils of sq km2)") +
+  scale_x_continuous(breaks = unique(as.vector(intervals)), minor_breaks = NULL) +
+  geom_vline(xintercept = unique(as.vector(intervals)), linetype="dashed", color = "darkblue") +
+  annotate("text", x=mean(intervals[1,]), y=5, label="Jan") +
+  annotate("text", x=mean(intervals[2,]),y=5, label="Feb") +
+  annotate("text", x=mean(intervals[3,]),y=5, label="Mar") +
+  annotate("text", x=mean(intervals[4,]),y=5, label="Apr") +
+  annotate("text", x=mean(intervals[5,]),y=5, label="May") +
+  annotate("text", x=mean(intervals[6,]),y=15, label="Jun") +
+  annotate("text", x=mean(intervals[7,]),y=15, label="Jul") +
+  annotate("text", x=mean(intervals[8,]),y=15, label="Aug") +
+  annotate("text", x=mean(intervals[9,]),y=15, label="Sep") +
+  annotate("text", x=mean(intervals[10,]),y=15, label="Oct") +
+  annotate("text", x=mean(intervals[11,]),y=15, label="Nov") +
+  annotate("text", x=mean(intervals[12,]),y=15, label="Dec") +
+  scale_color_continuous(breaks = c(1978, 2018))

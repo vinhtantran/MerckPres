@@ -179,7 +179,7 @@ $$I(C_k) = \frac{1}{n_k} \sum_{(i, j) \in C_k, i > j}  d^2(\mathbf{y_i},\mathbf{
 where $d(\mathbf{y_i},\mathbf{y_j})$ is the distance between observations $\mathbf{y_i}$ and $\mathbf{y_j}$ and $n_k$ is the cluster size
 
 * Let $s$ be a binary split dividing a cluster $C_k$ into two clusters $C_{kL}$ and $C_{kR}$. The decrease in inertia is 
-$$\Delta I(s, C_k) = I(C_k) - I(C_{kL}) - I(C_{kR})$$
+$$\Delta (s, C_k) = I(C_k) - I(C_{kL}) - I(C_{kR})$$
 
 * The best split is selected as
 $$s^*(C_k) = \arg \max_s {\Delta I(s,C_k)} $$
@@ -640,7 +640,7 @@ bind_rows(y1982, y1990, y2006, y2018) %>%
   mutate(Cluster = c("High Jan, High Jul",
                      "High Jan, Low Jul",
                      "Low Jan, High Jul",
-                     "Low Jan, Low Jul")) %>%
+                     "Low Jan, Low Jan")) %>%
   select(Cluster, Year) %>%
   spread(key = Cluster, value = Year) %>%
   kable()
@@ -689,32 +689,27 @@ fda_data$fd$coefs %>%
 
 ---
 
-## Other Problems (Not Mentioned Here)
 
-* Choosing the number of clusters in monothetic clustering
-  * A hybrid method of permutation test and an error-based method such as average silhouette width or pseudo-F
+## Conclusions 
 
-* Application on data with circular variables
-  * Dissimilarity measures
-  * Visualizations
+* Monothetic clustering bi-partitions data at the values of one variable at a time
+
+  * Clusters share the same characteristics from split variables
+  * Can interpret the resulting clusters
+  * Can predict the cluster a new observation would fall into
   
 * R packages `monoclust` and `PULS` are available on Github
 
----
+--
 
 ## Possible Extensions
 
+* Sparse clustering `r Citep(bib, "Witten2010")` can be applied to functional data to "weight" the contributions of variables (days) to the clustering process
+
+* Monothetic Exhaustive search is slow, heuristic search algorithms may help with some trade-offs
+  * Results of best split for each variable could be stored so they won't unnecessarily repeat
+
 * Clustering the derivative of the Arctic ice extent data
-
-* Consider the Arctic ice extent data as circular functional data
-
-* Search algorithms improvement
-
-```{r circfunc, out.width='50%'}
-knitr::include_graphics("figure/icecirpuls-1.png")
-```
-
-
 
 ---
 # Statistical Consultation Collaborations: Power Analysis
@@ -952,56 +947,3 @@ powerplot_n
 ## Deliverables
 
 * An interactive report to assist the researcher to decide the sample size and the power of the test.
-
----
-# Sensitivity of Analysis Paths in MetaboAnalyst
-
-* The Proteomics, Metabolomics and Mass Spectrometry Facility (Mass Spec) is a research lab in Montana State University
-
-* They are funded by INBRE and usually do LC-MS analysis for many metabolomics-related projects on campus
-
-* MetaboAnalyst (https://www.metaboanalyst.ca/) is the web application they use for statistical analysis of metabolomics data
-
-* My role as a statistician with computer science background
-  * Learn the analyses the webapp is doing
-  * Understand how biochemists have been using the webapp
-  * Suggest good sets of options that will give a statistically sound result
-  
-* This is an ongoing project
-
----
-## Difficulties to Overcome
-
-* Chemical and bio-chemical terminologies
-
-* Mass spec procedures and associated data analysis problems
-
-* Dig into R packages used by MetaboAnalyst and reproduce the results offline
-
-* Learn how researchers have been using MetaboAnalyst and reproduce the results
-
-* Automate the analysis process
-
-* Do sensitivity analysis on various options
-
----
-## Current Results
-
-* Used the metabolomics data set from Dr. Hunts' pilot dietary project
-  * Detect metabolites that differentiate the high and low fat responder groups
-  
-* Divided the analysis duties between domain experts and statistician
-  * The biochemists to run blanks to help with filtering process
-  * The statisticians to work on appropriate data transformations
-
-* A report on sensitivity analysis with an accompanied Shiny app
-  
----
-## Future Work
-
-* Learn the assumptions made by Partial Least Squares Determinant Analysis (PLS-DA)
-
-* Give formal suggestions on what analysis paths to use for finding influencing features problems
-
-* Move on to a different set of mass spec data with a different analysis question
-

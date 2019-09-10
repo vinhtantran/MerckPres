@@ -1,0 +1,1855 @@
+---
+title: "<small>PhD Defense</small><br/><br/>Monothetic Cluster Analysis with Extensions to Circular and Functional Data"
+author: "Tan Tran <br/>Advisor: Dr. Mark Greenwood"
+date: "April 29, 2019"
+bibliography: "mybib.bib"
+biblio-style: "apalike"
+link-citations: true
+output:
+  xaringan::moon_reader:
+    css: [default, "msu.css", tamu-fonts]
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = FALSE, message = FALSE, warning = FALSE,
+               comment = NA, fig.path = 'figure/', cache.path = 'cache/', 
+               out.width='100%', fig.width = 6, fig.retina = 2)
+
+options(htmltools.dir.version = FALSE)
+```
+
+```{r load}
+library(RefManageR)
+library(tidyverse)
+library(gridExtra)
+library(RColorBrewer)
+library(monoClust)
+library(dendextend) # for extending Ward's dengrogram plots
+library(kableExtra)
+library(circular)
+library(leaflet)
+library(lubridate)
+library(PULS)
+library(fda)
+
+# Always use select() from dplyr package instead of MASS
+select <- dplyr::select
+
+theme_set(theme_bw(base_size = 14) +
+            theme(legend.position = "bottom",
+                  strip.background = element_rect(fill = "white", linetype = "blank"),
+                  strip.text = element_text(hjust = 0.05)))
+set.seed(1234)
+
+BibOptions(check.entries = FALSE, 
+           bib.style = "authoryear", 
+           cite.style = "authoryear", 
+           style = "markdown",
+           max.names = 3,
+           longnamesfirst = FALSE,
+           hyperlink = FALSE, 
+           dashed = FALSE)
+bib <- ReadBib("mybib.bib", check = FALSE)
+```
+# Table of Contents
+
+* Chapter 1: Introduction
+
+* Chapter 2: Choosing the Number of Clusters
+
+* Chapter 3: Data with Circular Variables
+
+* Chapter 4: Clustering Functional Data
+
+* Chapter 5: R Packages and Vignette
+
+* Chapter 6: Conclusions and Future Extensions
+
+* Appendix
+
+---
+
+Test the font size
+
+# Chapter 1: Introduction
+## Clustering
+
+* Unsupervised learning techniques for grouping (multivariate) responses with the goal of:
+  * homogeneity — internal cohesion
+  * separation — external isolation
+  
+* When to use clustering:
+  * Find underlying patterns where little or no information about the data are known or to compare to known groups
+  * Prediction of cluster membership based on the common characteristics of the clusters
+  
+* "A classification of a set of objects is not like a scientific theory and should perhaps be judged largely on its usefulness [...]." `r Citep(bib, "Everitt2011a")`
+
+---
+## Two Clustering Techniques
+
+* Optimization clustering techniques
+
+  * The number of clusters, $K$, have to be pre-determined
+  * Move the objects between clusters as long as it improves the criterion
+  * $k$-means and partitioning around medoids (PAM, or $k$-medoids) are two examples of this technique
+  
+* Hierarchical clustering techniques
+
+  * Distance measures between objects and between clusters must be defined
+    * single linkage, complete linkage, Ward's method, etc.
+  * Objects are fused together (agglomerative), or separated from each 
+other (divisive) in each step based on the distance metric
+  * The result is usually presented by dendrogram
+
+---
+## An Example: $k$-Means
+
+Data from `r TextCite(bib, "Barbour2017")` cerebro-spinal fluid (CSF) biomarker data 
+set with $n = 225$ subjects. The variables of interest are the standardized log ratios of some proteins.
+* Multiple Sclerosis (MS) and non-MS patients are known
+* $Q = 2$ log ratios are used to demonstrate the method
+
+```{r kmeanhier, out.width="45%", fig.show="hold", fig.width=6, fig.height=6, fig.align='center'}
+brewer2 <- brewer.pal(n = 2, "Dark2")[1:2]
+brewer3 <- brewer.pal(n = 3, "Dark2")
+
+health <- read_csv("../supportingCode/presentation/data/DataForTan_12052017.csv")
+health.2.ratio <- health %>%
+  select(3, 4) %>% mutate_all(log) %>% mutate_all(scale) %>% mutate_all(as.numeric)
+
+kmeans.health <- kmeans(health.2.ratio, centers = 2)
+kmeans.membership <- ifelse(kmeans.health$cluster == 2, 1, 2)
+kmeans.centroid <- tibble(`SL004672/SL003322` = kmeans.health$centers[,1],
+                          `SL000467/SL004857` = kmeans.health$centers[,2])
+kmeans.health.plot <- ggplot(health.2.ratio, aes(x = `SL004672/SL003322`, 
+                                                 y = `SL000467/SL004857`, 
+                                                 color = factor(kmeans.membership))) + 
+  geom_point(aes(shape = health$current_ms), size=3) + 
+  geom_point(data = kmeans.centroid, color = "#7570b3", size = 5) +
+  scale_color_manual(guide = F, values = brewer2[2:1]) + 
+  scale_shape_discrete(name = "Disease condition") +
+  labs(title = "k-means on CSF data",
+       x = "log(SL004672/SL003322)",
+       y = "log(SL000467/SL004857)")
+
+kmeans.health.plot
+```
+
+---
+
+## An Example: Hierarchical with Ward's Method
+
+```{r hclust, out.width="50%", fig.show="hold", fig.width=6, fig.height=6}
+hclust.health <- hclust(d = dist(health.2.ratio), method = "ward.D2")
+
+hclust.health %>%
+  as.dendrogram %>%
+  color_branches(k = 2, col = brewer2) %>%
+  as.ggdend() %>%
+  ggplot(labels = F) +
+  theme_void()
+
+hclust.mem.health <- cutree(hclust.health, k = 2)
+hclust.mem.health <- ifelse(hclust.mem.health == 2, 1, 2)
+hclustplot <- ggplot(health.2.ratio, aes(x = `SL004672/SL003322`,
+                                         y = `SL000467/SL004857`,
+                                         color = factor(hclust.mem.health))) +
+  geom_point(aes(shape = health$current_ms), size=3) +
+  scale_color_manual(guide = F, values = brewer2) +
+  scale_shape_discrete(name = "Disease condition") +
+  labs(title = "Ward's method on CSF data",
+       x = "log(SL004672/SL003322)",
+       y = "log(SL000467/SL004857)")
+hclustplot
+```
+
+---
+
+## Polythetic vs. Monothetic Clustering
+
+* Popular methods like k-means and Ward's are **polythetic methods**
+  * Clustered using the combined information of variables
+  * Observations in a cluster are similar "on average" but may share no common characteristics
+
+* There are also **monothetic divisive methods**
+  * Data are bi-partitioned based on values of one variable at a time
+  * Observations share common characteristics: in the same interval or category
+
+---
+
+## Monothetic Clustering Algorithm
+
+* Introduced in `r TextCite(bib, "Chavent1998")` and `r TextCite(bib, "Piccarreta2007")`, inspired by classification and regression trees `r Citep(bib, "Breiman1984")`
+
+* A global criterion called **inertia** for a cluster $C_k$ is defined as 
+$$I(C_k) = \frac{1}{n_k} \sum_{(i, j) \in C_k, i > j}  d^2(\mathbf{y_i},\mathbf{y_j})$$
+where $d(\mathbf{y_i},\mathbf{y_j})$ is the distance between observations $\mathbf{y_i}$ and $\mathbf{y_j}$ and $n_k$ is the cluster size
+
+* Let $s$ be a binary split dividing a cluster $C_k$ into two clusters $C_{kL}$ and $C_{kR}$. The decrease in inertia is 
+$$\Delta (s, C_k) = I(C_k) - I(C_{kL}) - I(C_{kR})$$
+
+* The best split is selected as
+$$s^*(C_k) = \arg \max_s {\Delta I(s,C_k)} $$
+
+
+---
+
+## Properties of Monothetic Clustering
+* Inertia is a global optimization criterion
+
+* Bi-partition observations based on one variable at a time, making the method monothetic
+
+* Defines rules for cluster membership
+  * Easy classification of new members
+  
+* For the CSF data, monothetic clustering can be useful to allow classification into groups with shared characteristics that *might* relate to disease presence/absence
+
+???
+
+Shared characteristics in the second bullet.
+
+---
+
+## Monothetic Clustering on the CSF Data
+
+```{r monodemo2, out.width="50%", fig.show="hold", fig.width=6, fig.height=6}
+health.2.ratio.mono <- data.frame(health.2.ratio)
+colnames(health.2.ratio.mono) <- c("rat1", "rat2")
+mono.health.2 <- MonoClust(health.2.ratio.mono, nclusters = 2)
+# Tree
+plot(mono.health.2, cols = brewer2, margin = 0.2)
+
+# Scatterplot
+mono.mem.2 <- mono.health.2$Membership - 1
+
+mono2.medoid <- tibble(`SL004672/SL003322` = health.2.ratio.mono[c(169, 161), 1],
+                       `SL000467/SL004857` = health.2.ratio.mono[c(169, 161), 2])
+
+# Plot with two clusters first
+monoplot.2 <- ggplot(health.2.ratio, aes(x = `SL004672/SL003322`, 
+                                       y = `SL000467/SL004857`, 
+                                       color = factor(mono.mem.2))) +
+    geom_point(aes(shape = health$current_ms), size=3) +  
+    geom_point(data = mono2.medoid, color = "#7570b3", size = 5) +
+    scale_color_manual(guide = F, values = brewer2) + 
+    scale_shape_discrete(name = "Disease condition") +
+    geom_vline(xintercept = -0.2642147, color = "red") +
+    labs(title = "Monothetic Clustering on CSF Data",
+       x = "log(SL004672/SL003322)",
+       y = "log(SL000467/SL004857)")
+
+monoplot.2
+```
+
+???
+
+QUICK!!!
+
+---
+
+## One more split
+```{r monodemo3, out.width="50%", fig.show="hold", fig.width=6, fig.height=6}
+mono.health.3 <- MonoClust(health.2.ratio.mono, nclusters = 3)
+plot(mono.health.3, cols = brewer.pal(3, "Dark2"), margin = 0.2)
+
+# Scatterplot
+mono.mem.3 <- as.numeric(factor(mono.health.3$Membership))
+mono3.medoid <- tibble(`SL004672/SL003322` = health.2.ratio.mono[c(169, 104, 141), 1],
+                       `SL000467/SL004857` = health.2.ratio.mono[c(169, 104, 141), 2])
+
+monoplot.3 <- ggplot(health.2.ratio, aes(x = `SL004672/SL003322`, 
+                                       y = `SL000467/SL004857`, 
+                                       color = factor(mono.mem.3))) +
+    geom_point(aes(shape = health$current_ms), size=3) +  
+    geom_point(data = mono3.medoid, color = "#7570b3", size = 4) +
+    scale_color_discrete(guide=F) + 
+    scale_shape_discrete(name = "Disease condition") +
+    geom_vline(xintercept = -0.2642147, color = "red") +
+    labs(title = "Monothetic Clustering on CSF data",
+       x = "log(SL004672/SL003322)",
+       y = "log(SL000467/SL004857)") +
+    geom_segment(aes(x = -0.2642147, 
+                   y = 0.37791, 
+                   xend = max(`SL004672/SL003322`), 
+                   yend = 0.37791), color = "blue")
+
+monoplot.3
+```
+
+???
+
+QUICK!!!
+
+---
+
+# Chapter 2: Choosing the Number of Clusters
+
+* When the data do not have a true cluster structure, the results of a clustering algorithm can be arbitrary and misleading.
+
+* If a cluster structure is present, the number of clusters to report has to be "estimated"
+    
+* This can be done informally by subject matter or plotting, which are very subjective, or based on application
+    
+* Many formal techniques have been suggested to overcome the subjectivity `r Citep(bib, c("Milligan1985", "Dimitriadou2002", "Tibshirani2001"))`
+    
+* There is no generally "best" technique but investigations are needed to assess performance of the technique in different cluster structures and with different clustering algorithms
+
+---
+
+## Average Silhouette Width (AW)
+
+* The silhouette width $s(i)$ `r Citep(bib, "Rousseeuw1987")` is a measure of how "comfortable" an 
+    observation $i$ is in the cluster it resides 
+    $$ s(i) = \frac{b(i) - a(i)}{\max (a(i), b(i))}, $$
+  * $a(i)$: the average distance between $i$ and other observations in 
+        the same cluster
+  * $b(i)$: the minimum average distance from $i$ to other observations 
+        in any other cluster that $i$ is not a member
+* The value obtained is from -1 to 1
+* The average silhouette width of a $K$ cluster solution 
+$$\overline{s_K} = \frac{\sum_{i=1}^n s(i)}{n}$$
+* Select cluster solution size $K$ that has maximum average 
+    silhouette width
+* Not defined for $K=1$
+
+???
+
+DO NOT USE <br>POPULAR</br>
+
+---
+
+## Caliński and Harabasz (CH)'s Pseudo-F
+* `r TextCite(bib, "Calinski1974")`
+
+* Choose $K$  to maximize variation between clusters relative to 
+    variation within clusters.
+    
+* Use 
+$$\mathrm{pseudo-}F= \frac{B(K)/(K-1)}{W(K)/(n-K)}$$ 
+with $B(K)$ the between cluster sums of squares (possibly from dissimilarities) and $W(K)$ the within cluster sums of squares. 
+    
+* It is not defined for $K=1$ so cannot select a single cluster 
+    solution.
+    
+---
+
+## $M$-fold Cross-Validation
+
+* Based on ideas for pruning regression trees `r Citep(bib, "Breiman1984")`
+* Randomly divide data set into $M$ equal-sized subsets, withhold a 
+    subset, and use the rest for training
+* Compute a measure of prediction error for the $m^\mathrm{th}$ set of withheld observations (in Euclidean distance cases)
+$$MSE_m=\frac{1}{n_m} \sum_{j=1}^p\sum_{i \in m}(y_{ij}-\hat{y}_{ij})^2$$ 
+where $\hat{y}_{ij}$ are the predicted responses, which is the centroid of the predicted cluster
+* Cross-validation based estimate of the error for the tree of size $K$ $$CV_K = \frac{1}{M} \sum_{m=1}^M MSE_m$$
+    
+---
+
+## $M$-Fold Cross-Validation
+
+* CV-based selection rules:
+
+  1. Choose $K^*$ that provides the smallest $CV_K$ (*minCV* rule)
+
+  2. Choose the smallest $K$ satisfying
+
+$$CV_K \leq CV_{K^*} + \gamma SE_{K^*}$$
+where $SE_{K^*}$ is the standard error estimate of $CV_{K^*}$ and $\gamma$ = 1 or 2 (*CV1SE* and *CV2SE* rules)
+    
+???
+
+TRANSITION!!!! Calculate many number of clusters then compare
+
+---
+## Permutation Tests: Cluster Shuffling
+
+* $H_0$: The two new clusters are identical to each other
+* Based on ideas from conditional inference trees `r Citep(bib, "Hothorn2006")`
+* Using permutations of observations across split and pseudo-F (F*) test statistic `r Citep(bib, "Anderson2001")`
+
+$$p\mathrm{-value} = \frac{\mathrm{count}(F^* \geq F_{obs})}{B}$$ 
+* Apply test at each node (proposed split)
+* Adjust each $p$-value using Bonferroni corrections based on the number of tests required to get to tested node
+* Grow tree until a proposed split has an adjusted $p$-value over a pre-determined threshold (say, $\alpha$ of 0.01 or 0.05)
+
+---
+## Permutation Tests: Variable Shuffling
+
+* Problems with Cluster Shuffling approach:
+  * Monothetic clustering guaranteed that the chosen splitting variable created the best split in terms of the change in sum of squared distances with that variable
+  * F-statistic is also based on sum of squared distances
+  * Type I error rate is inflated so tends to end up with too many splits
+
+--
+
+* Remedy 1: Modify test statistic to exclude splitting variables from test statistic calculation (use pseudo-F)
+
+--
+
+* Remedy 2: Permutation Tests: Variable Shuffling
+  * Permute the values of the selected splitting variable
+  * Re-optimize split
+  * Test statistic is a "measure of clustering": average silhouette width or CH's pseudo-F
+
+---
+## Simulation Study 1: Unclusterable Data
+
+* Assess whether no or some cluster structure is present
+* Simulated data
+  * Sampled from a multivariate uniform distribution
+  * Three different sizes 200 x 4, 200 x 8, and 300 x 4
+  * 1,000 data sets each size
+* Significance level of 0.05 is used for the hypothesis tests
+
+```{r type1error}
+path <- "../supportingCode/choosingNumberOfCluster/results/"
+
+shuffle1_04 <- read_csv(paste0(path, "mono_0c_4v.perm_shuffle_group.csv"))
+shuffle2_04 <- read_csv(paste0(path, "mono_0c_4v.perm_shuffle_var_constrained_AW.csv"))
+shuffle3_04 <- read_csv(paste0(path, "mono_0c_4v.perm_shuffle_var_constrained_F.csv"))
+CVmin_04 <- read_csv(paste0(path, "mono_0c_4v.minCV.csv"))
+CV1SE_04 <- read_csv(paste0(path, "mono_0c_4v.CV1SE.csv"))
+CV2SE_04 <- read_csv(paste0(path, "mono_0c_4v.CV2SE.csv"))
+
+variable4 <- bind_cols(shuffle1_04, shuffle2_04, shuffle3_04,
+                        CVmin_04, CV1SE_04, CV2SE_04) %>%
+  rename("Cluster shuffling" = value, 
+         "Variable Shuffling w/ AW" = value1, 
+         "Variable Shuffling w/ F" = value2, 
+         "minCV" = value3, 
+         "CV1SE" = value4, 
+         "CV2SE" = value5) %>%
+  gather(method, results) %>%
+  group_by(method) %>%
+  summarize(successrate = sum(results == 1)/n(),
+            type1 = 1 - successrate) %>%
+  dplyr::select(`Clustering method` = method,
+       `200 x 4` = type1)
+
+shuffle1_08 <- read_csv(paste0(path, "mono_0c_8v.perm_shuffle_group.csv"))
+shuffle2_08 <- read_csv(paste0(path, "mono_0c_8v.perm_shuffle_var_constrained_AW.csv"))
+shuffle3_08 <- read_csv(paste0(path, "mono_0c_8v.perm_shuffle_var_constrained_F.csv"))
+CVmin_08 <- read_csv(paste0(path, "mono_0c_8v.minCV.csv"))
+CV1SE_08 <- read_csv(paste0(path, "mono_0c_8v.CV1SE.csv"))
+CV2SE_08 <- read_csv(paste0(path, "mono_0c_8v.CV2SE.csv"))
+
+variable8 <- bind_cols(shuffle1_08[,2], shuffle2_08[,2], shuffle3_08[,2],
+                        CVmin_08, CV1SE_08, CV2SE_08) %>%
+  rename("Cluster shuffling" = value, 
+         "Variable Shuffling w/ AW" = value1, 
+         "Variable Shuffling w/ F" = value2, 
+         "minCV" = value3, 
+         "CV1SE" = value4, 
+         "CV2SE" = value5) %>%
+  gather(method, results) %>%
+  group_by(method) %>%
+  summarize(successrate = sum(results == 1)/n(),
+            type1 = 1 - successrate) %>%
+  dplyr::select(`Clustering method` = method,
+       `200 x 8` = type1)
+
+shuffle1_300 <- read_csv(paste0(path, "mono_0c_4v_300o.perm_shuffle_group.csv"))
+shuffle2_300 <- read_csv(paste0(path, "mono_0c_4v_300o.perm_shuffle_var_constrained_AW.csv"))
+shuffle3_300 <- read_csv(paste0(path, "mono_0c_4v_300o.perm_shuffle_var_constrained_F.csv"))
+CVmin_300 <- read_csv(paste0(path, "mono_0c_4v_300o.minCV.csv"))
+CV1SE_300 <- read_csv(paste0(path, "mono_0c_4v_300o.CV1SE.csv"))
+CV2SE_300 <- read_csv(paste0(path, "mono_0c_4v_300o.CV2SE.csv"))
+
+variable300 <- bind_cols(shuffle1_300[,2], shuffle2_300[,2], shuffle3_300[,2],
+                        CVmin_300, CV1SE_300, CV2SE_300) %>%
+  rename("Cluster shuffling" = value, 
+         "Variable Shuffling w/ AW" = value1, 
+         "Variable Shuffling w/ F" = value2, 
+         "minCV" = value3, 
+         "CV1SE" = value4, 
+         "CV2SE" = value5) %>%
+  gather(method, results) %>%
+  group_by(method) %>%
+  summarize(successrate = sum(results == 1)/n(),
+            type1 = 1 - successrate) %>%
+  dplyr::select(`Clustering method` = method,
+       `300 x 4` = type1)
+
+  
+output_table <- variable4 %>% 
+  left_join(variable8) %>%
+  left_join(variable300) %>%
+  mutate(order = c(1, 5:6, 4, 2:3)) # This is sorted by hand!!!
+
+kable(output_table %>% arrange(order) %>% select(-order),
+      digits = 3, linesep = "") %>%
+  add_header_above(c(" ", "Rate of not choosing one cluster result" = 3)) %>%
+  column_spec(2:4, width = "3cm") %>%
+  kable_styling()
+```
+
+???
+
+* FALSE DETECTION (TYPE I ERROR RATE)
+
+Highlight some values
+* CV (inconsistent)
+* Cluster (very liberal)
+* Variable shuffling (did good but slightly liberal)
+
+
+---
+
+## Simulation Study 2a: Accuracy in Choosing the Number of Clusters
+
+* Assess rate of selection of correct number of clusters
+* Simulated data with four true clusters:
+  * Data size 200 x 4, generated from multivariate normal distributions $N(\mu_i, I_4)$ where $\mu_i \sim N(0, 5^2)$, $i=1 \ldots 4$, the distance between two closest observations in two clusters is at least 2 units
+
+```{r results1, fig.height=4.5, fig.width=10}
+# These have to fit the simulation
+MINNODE <- 1
+MAXNODE <- 10
+
+compare_tab <- function(SCENARIO) {
+  # Set constant
+  PATH <- "../supportingCode/choosingNumberOfCluster/results/"
+  
+  prefix <- case_when(SCENARIO == 1 ~ "mono_4c_2v_2n_no_str.", # 4 clusters, 2 variables, 2 noises, no structure
+                      SCENARIO == 2 ~ "mono_4c_2v_8n_no_str.",
+                      SCENARIO == 4 ~ "mono_4c_2v_0n.", # 4 clusters, 2 variables, 0 noise
+                      SCENARIO == 41 ~ "mono_4c_2v_0n_clusterGen.", # 4 clusters, 2 variables, 0 noise, created by clusterGen
+                      SCENARIO == 42 ~ "mono_4c_2v_1n_clusterGen.", # 4 clusters, 2 variables, 1 noise, created by clusterGen
+                      SCENARIO == 5 ~ "mono_0c_4v." # 0 clusters, 4 variables
+  )
+  
+  
+  # Read raw values
+  AW <- read_csv(paste0(PATH, prefix, "AW.csv")) %>% 
+    group_by(value) %>% count %>%
+    rename(count = 1, AW = 2)
+  CH <- read_csv(paste0(PATH, prefix, "CH.csv")) %>% 
+    group_by(value) %>% count %>%
+    rename(count = 1, CH = 2)
+  minCV <- read_csv(paste0(PATH, prefix, "minCV.csv")) %>% 
+    group_by(value) %>% count %>%
+    rename(count = 1, minCV = 2)
+  CV1SE <- read_csv(paste0(PATH, prefix, "CV1SE.csv")) %>% 
+    group_by(value) %>% count %>%
+    rename(count = 1, CV1SE = 2)
+  CV2SE <- read_csv(paste0(PATH, prefix, "CV2SE.csv")) %>% 
+    group_by(value) %>% count %>%
+    rename(count = 1, CV2SE = 2)
+  perm_shuffle_group <- read_csv(paste0(PATH, prefix, "perm_shuffle_group.csv")) %>% 
+    group_by(value) %>% count %>%
+    rename(count = 1, perm_shuffle_group = 2)
+  perm_shuffle_var_constrained_F <- read_csv(paste0(PATH, prefix, "perm_shuffle_var_constrained_F.csv")) %>% 
+    group_by(value) %>% count %>%
+    rename(count = 1, perm_shuffle_var_constrained_F = 2)
+  perm_shuffle_var_constrained_AW <- read_csv(paste0(PATH, prefix, "perm_shuffle_var_constrained_AW.csv")) %>% 
+    group_by(value) %>% count %>%
+    rename(count = 1, perm_shuffle_var_constrained_AW = 2)
+  
+  table <- tibble(count = MINNODE:MAXNODE)
+  
+  ret.table <- table %>% 
+    left_join(AW) %>% 
+    left_join(CH) %>%
+    left_join(minCV) %>%
+    left_join(CV1SE) %>%
+    left_join(CV2SE) %>%
+    left_join(perm_shuffle_group) %>%
+    left_join(perm_shuffle_var_constrained_F) %>%
+    left_join(perm_shuffle_var_constrained_AW) %>%
+    mutate_each(list(~replace(., is.na(.), 0))) %>%
+    gather(key = method, value = freq, -count) %>%
+    mutate(method = fct_recode(method,
+                               "Permutation Cluster Shuffle" = "perm_shuffle_group",
+                               "Permutation Variable Shuffle w/ AW" = "perm_shuffle_var_constrained_AW",
+                               "Permutation Variable Shuffle w/ F" = "perm_shuffle_var_constrained_F"))
+  
+  return(ret.table)
+}
+
+# Regardless the file name, it's actually 4 variables with 4 clusters and no noise
+data1 <- compare_tab(41)
+ggplot(data1, aes(x = count, y = freq/5, color = method, shape = method)) +
+  geom_vline(xintercept = 4, color = "red", size = 10, alpha = 0.2) +
+  geom_line() +
+  geom_point() +
+  scale_shape_manual(values=seq(0,7)) +
+  scale_x_continuous(breaks = MINNODE:MAXNODE) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20)) +
+  labs(x = "Number of clusters",
+       y = "Frequency (%)",
+       color = "Method",
+       shape = "Method",
+       fill = NULL) +
+  scale_color_brewer(palette = "Dark2") +
+  theme(panel.grid.minor.x = element_blank())
+```
+
+???
+
+* True cluster (red), no 1 result for AW and CH
+* minCV and CV1SE
+* Good: AW works best (almost 100%), variable shuffling, then CH
+
+---
+## Simulation Study 2b: Accuracy in Choosing the Number of Clusters
+
+* Simulated data:
+  * Data size 200 x 5 
+  * The previous scenario with an extra noise variable generated from $N(0,1)$
+  * The data sets were standardized before applying the clustering algorithms
+  
+```{r results_compare2, fig.width=10, fig.height=4.5}
+# Regardless the file name, it's actually 4 variables with 4 clusters and one noise (normal)
+data2 <- compare_tab(42)
+ggplot(data2, aes(x = count, y = freq/5, color = method, shape = method)) +
+  geom_vline(xintercept = 4, color = "red", size = 10, alpha = 0.2) +
+  geom_line() +
+  geom_point() +
+  scale_shape_manual(values=seq(0,7)) +
+  scale_x_continuous(breaks = MINNODE:MAXNODE) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20)) +
+  labs(x = "Number of clusters",
+       y = "Frequency (%)",
+       color = "Method",
+       shape = "Method",
+       fill = NULL) +
+  scale_color_brewer(palette = "Dark2") +
+  theme(panel.grid.minor.x = element_blank())
+```
+
+???
+
+* Add a noise variable to make the cluster more difficult
+* All shift, but classic is better (most of the cases)
+* Permute with AW chose 1 more than 20%
+
+---
+## A Hybrid Approach
+
+* AW and CH's $F$ performed well in choosing the "correct" number of clusters
+  * But they can't pick the one cluster solution
+
+* Permutation-based hypothesis tests has good (not great) Type I error rates in unclusterable data
+  * But they cannot compete when > 1 cluster structure is present
+  
+* We suggest a hybrid approach for choosing the number of clusters in monothetic
+  * Variable shuffling hypothesis test is used first to decide if there is a cluster structure
+  * A classic measure of clustering is applied if evidence of rejecting the null hypothesis is strong
+  * Should use the same statistic in both stages
+  
+---
+## Simulation Study 3: The Hybrid Approach
+
+* One true cluster: 500 data sets with the size of 200 x 4, generated from a multivariate uniform distribution (similar to Simulation Study 1: Unclusterable Data)
+* Two true clusters: 500 data sets with the size of 200 x 4, generated from a multivariate normal distributions $N(\mu_i, I_4)$ where $\mu_i \sim N(0, 5^2)$, $i = 1, 2$ (similar to Simulation Study 2a)
+
+```{r hybrid}
+# These have to fit the simulation
+MINNODE <- 1
+MAXNODE <- 3
+
+SCENARIO <- 6
+
+
+# Set constant
+PATH <- "../supportingCode/choosingNumberOfCluster/results/"
+
+prefix <- case_when(SCENARIO == 1 ~ "mono_4c_2v_2n_no_str.", # 4 clusters, 2 variables, 2 noises, no structure
+                    SCENARIO == 2 ~ "mono_4c_2v_8n_no_str.",
+                    SCENARIO == 4 ~ "mono_4c_2v_0n.", # 4 clusters, 2 variables, 0 noise
+                    SCENARIO == 41 ~ "mono_4c_2v_0n_clusterGen.", # 4 clusters, 2 variables, 0 noise, created by clusterGen
+                    SCENARIO == 42 ~ "mono_4c_2v_1n_clusterGen.", # 4 clusters, 2 variables, 1 noise, created by clusterGen
+                    SCENARIO == 5 ~ "mono_0c_4v.", # 0 clusters, 4 variables
+                    SCENARIO == 6 ~ "mono_2c_4v_0n_clusterGen." # 2 clusters, 4 variables
+)
+
+
+# Read raw values
+perm_shuffle_var_constrained_CH <- read_csv(paste0(PATH, prefix, "perm_shuffle_var_constrained_F.csv")) %>% 
+  group_by(value) %>% count %>%
+  rename(count = 1, perm_shuffle_var_constrained_CH = 2)
+
+CH <- read_csv(paste0(PATH, prefix, "CH.csv")) %>% 
+  group_by(value) %>% count %>%
+  rename(count = 1, "CH's F" = 2)
+
+table <- tibble(count = MINNODE:MAXNODE)
+
+ret.table <- table %>% 
+  left_join(CH) %>% 
+  left_join(perm_shuffle_var_constrained_CH) %>%
+  mutate_each(list(~replace(., is.na(.), 0))) %>%
+  gather(key = method, value = freq, -count) %>%
+  mutate(method = fct_recode(method,
+                             # TODO Fix AW to CH
+                             "Variable Shuffling w/ F" = "perm_shuffle_var_constrained_CH")) %>%
+  spread(count, freq) %>%
+  rename(`> 2` = `3`,
+         `< 2` = `1`,
+         `Clustering method` = `method`) %>%
+  mutate(`Rate` = (`2`)/500)
+  
+ret.table <- bind_rows(ret.table,
+                       tibble(`Clustering method` = "Hybrid",
+                              `< 2` = as.numeric(ret.table[2,2]),
+                              `2` = as.numeric(ret.table[2,3] + ret.table[2,4]),
+                              `> 2` = 0,
+                              `Rate` = (`2`)/500))
+
+
+perm_table <- output_table %>%
+  filter(`Clustering method` == "Variable Shuffling w/ F") %>%
+  mutate(`> 1` = `200 x 4` * 500,
+         `1` = 500 - `> 1`,
+         `Rate` = (`1`)/500) %>%
+  select(-(2:5))
+
+hybrid_table <- bind_rows(perm_table, tibble(`Clustering method` = c("CH's F", "Hybrid"),
+                                           `> 1` = c(500, as.numeric(perm_table[1,2])),
+                                           `1` = c(0, as.numeric(perm_table[1,3])),
+                                           `Rate` = (`1`)/500)) %>%
+  select(1, 3, 2, 4) %>%
+  right_join(ret.table, by = "Clustering method") %>%
+  rename(`1` = "< 2",
+         Rate = Rate.x,
+         Rate = Rate.y)
+
+hybrid_table[2, 1] <- paste0("PVS-F", footnote_marker_symbol(1))
+
+hybrid_table %>%
+  kable(escape = F) %>%
+  column_spec(c(2, 6), bold = T, color = "red") %>%
+  add_header_above(c(" ", 
+                     "One true cluster" = 3,
+                     "Two true clusters" = 4)) %>%
+  footnote(symbol = c("Permutation Variable Shuffling w/ F")) %>%
+  column_spec(2:8, width = "2cm") %>%
+  kable_styling()
+  
+
+```
+
+???
+
+Some loss in hybrid to set 1 cluster assessment
+
+Here 2, but will work like AW or F with more than 2
+
+---
+## Summary
+
+* Choosing a reasonable number of clusters assists greatly in understanding and interpreting the characteristics of a data set
+
+* Cross-validation $C_K$ keeps decreasing when $K$ increases and did not work consistently in the simulation studies
+
+* Clustering algorithms always generate groups. This should not be done if there is no cluster structure.
+    
+* The hybrid method has potential in improving the ability to choose the correct of number of clusters even when the data are on the edge of having one or two clusters
+  * Larger sample sizes increase the accuracy of this approach
+
+<!-- * The idea of applying a hypothesis at the root of the tree can also be applied to other tree-based clustering algorithms
+  * Shuffling values within the variables can break the correlation structure between variables
+  * Re-clustering could be used to make the null distribution-->
+  
+???
+
+Focus on the hybrid only!!!
+
+---
+```{r loadcircular, echo = FALSE}
+source("../supportingCode/circular/pcp.gg.R")
+
+torad <- function(x) {
+  (x / 180) * pi
+}
+
+wind <- read_csv("../supportingCode/circular/sensit.csv", 
+                 col_types = cols(
+                   LOC = col_factor(levels=NULL),
+                   WDIR = col_factor(levels=NULL),
+                   Date = col_datetime(format = "%m/%d/%Y %H:%M")
+                 )) %>%
+  select(LOC, Date, Sensit, WS, WDIR = WDIR....)
+
+LOCATION <- "BR"
+TIMERANGE2 <- c("2008-07-07", "2008-07-14")
+
+# Count the number of zeros in the data set in BR
+wind.count <- wind %>%
+  filter(LOC == LOCATION) %>%
+  select(Sensit) %>%
+  group_by(Sensit) %>%
+  summarize(n = n()) %>%
+  mutate(ratio = n/sum(n)) %>%
+  filter(Sensit == 0)
+
+# Add a binary variables of sensit existance
+wind.subset.2008 <- wind %>%
+  filter(LOC == LOCATION,
+         Date >= TIMERANGE2[1] & Date <= TIMERANGE2[2]) %>%
+  select(Sensit, WS, WDIR) %>%
+  na.omit
+
+# Add a binary variables of sensit existence
+wind.sensit.bin.2008 <- wind.subset.2008 %>%
+  mutate(has.sensit = as.numeric(Sensit > 0)) %>%
+  select(has.sensit, WS, WDIR)
+
+matchcolor <- function(cluster.lst, color.lst) {
+  cluster.lst.sorted <- sort(cluster.lst)
+  color.lst[match(cluster.lst, cluster.lst.sorted)]
+}
+
+theme_Tan <- function() {
+  theme(panel.background = element_rect(colour=NA),
+        plot.background = element_rect(colour = NA),
+        panel.border = element_rect(colour = NA),
+        panel.grid.major = element_line(colour="#f0f0f0"),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(colour="black"),
+        legend.key = element_rect(colour = NA),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.title = element_text(face="italic"),
+        legend.justification = "center"
+  )
+}
+
+COLOR4 <- c("#e41a1c", "#377eb8", "#4daf4a", "#984ea3")
+COLOR6 <- c("#ffff33", "#e41a1c", "#4daf4a", "#984ea3", "#377eb8", "#ff7f00")
+```
+# Chapter 3: Data with Circular Variables
+## Particle Counts in the Antarctica
+
+* [Let's take a trip!](https://earth.google.com/web/@-77.6585431,162.6729511,146.40401315a,204.74230794d,35y,0h,0t,0r)
+* The data were introduced in `r TextCite(bib, "Sabacka2012")`
+* Variables include:
+  * Particle counts: measured over 1 minute every 15 minutes
+  * Wind speed (m/s): measured every 4 seconds and averaged at 15-minute intervals
+  * Wind direction (in degrees): measured every 30 seconds and averaged at 15-minute intervals
+
+.left-text[
+* Modifications:
+  * Subset of July 7-14, 2008 (11% of the recorded winds had particles compared to overall 2.39% in the whole time recorded), $n = 673$
+  * Particle counts were transformed into particle existence (`has.sensit`)
+]
+.right-plot[
+```{r, out.width="100%"}
+knitr::include_graphics('figure/BRmap.jpg')
+```
+]
+
+???
+
+exploring relationships between wind behavior and sediment transport in Taylor Valley, one of the driest place on earth
+  
+---
+## Circular Variables
+
+.pull-left[
+* Circular variables are measured in forms of angles or two-dimensional orientations
+  * Times of day of occurrences
+  * Aspect of slope (directional orientation)
+  * Wind and ocean current directions
+]
+
+.pull-right[
+```{r rose, fig.width=9}
+wdir.circ <- circular(wind.subset.2008$WDIR, 
+                      zero = pi/2,
+                      units = "degrees", 
+                      rotation = "clock")
+rose.diag(wdir.circ, bins = 30, prop = 2, cex=2)
+points(wdir.circ, stack = TRUE)
+lines(density(wdir.circ, bw=25, adjust=2), col=2)
+```
+]
+
+* Properties and challenges (.red[**Antarctica data set**])
+  * The beginning coincides with the end
+  * Zero value position: .red[**north**]
+  * Clockwise or counter-clockwise: .red[**clockwise**]
+  * Interpretation: .red[**zero is from the north to the south**] or from the south to the north
+
+???
+
+More quickly
+
+---
+## Dissimilarity Measure
+* For two angles $y_{iq}$ and $y_{jq}$ (in degrees) of a circular variable $q$, we suggest using
+$$d(y_{iq},y_{jq}) = \frac{180 - \left| 180 - |y_{iq} - y_{jq}| \right|}{180}$$
+* This dissimilarity measure `r Citep(bib, "Jammalamadaka2001")` provides values between 0 and 1
+* It fits well with Gower's dissimilarity for a data set with $Q$ variables
+$$d_{gow}(\mathbf{y_i},\mathbf{y_j}) = \frac{1}{Q} \sum_{q=1}^Q d_{gow}(y_{iq}, y_{jq}),$$
+  *  If $q$ is a linear quantitative variable
+$$d_{gow}(y_{iq}, y_{jq}) = \frac{|y_{iq} - y_{jq}|}{\max_{i,j}|y_{iq} - y_{jq}|}$$
+  *  If $q$ is a categorical variable <br/>
+$d_{gow}(y_{iq}, y_{jq}) = 0$ if $y_{iq}$ and $y_{jq}$ are in the same category, and 1 otherwise
+
+???
+
+The shortest distance between two points on the circle
+
+---
+## Splitting on a Circular Variable in Monothetic Clustering
+```{r clocking, eval = F}
+clock <- tibble(
+  group = rep(c("B", "A", "C",
+                "B", "A", "C",
+                "B", "A", "C",
+                "B", "A", "C"),
+  run = c(rep(c(0, 360), each = 3),
+          rep(c(365, 720), each = 3))
+) %>%
+  mutate(value = c(0, 360, 0, 360, 0, 5, 0, 330, 30, 330, 0, 30))
+
+
+clock <- tibble(
+  group = rep(c("B", "A"), 2),
+  run = c(rep(c(0, 360), each = 2))
+) %>%
+  mutate(value = c(0, 360, 360, 0))
+
+p <- ggplot(clock, aes(x = "", y = value, fill = factor(group))) + 
+  geom_bar(stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_y_continuous(labels = NULL) +
+  theme(panel.border = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none") +
+  scale_fill_manual(values = c("#1B9E77", "#D95F02", "#1B9E77"))
+goo <- p + transition_states(run, transition_length = 3,
+                      state_length = 1, 
+                      wrap = FALSE)
+anim_save("clock1.gif", goo)
+
+clock2 <- tibble(
+  group = rep(c("B", "A", "C"), 2),
+  run = c(rep(c(365, 720), each = 3))
+) %>%
+  mutate(value = c(0, 330, 30, 330, 0, 30))
+
+p2 <- ggplot(clock2, aes(x = "", y = value, fill = factor(group))) + 
+  geom_bar(stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_y_continuous(labels = NULL) +
+  theme(panel.border = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none") +
+  scale_fill_manual(values = c("#1B9E77", "#D95F02", "#1B9E77"))
+goo2 <- p2 + transition_states(run, transition_length = 3,
+                      state_length = 1, 
+                      wrap = FALSE)
+goo2
+
+anim_save("clock2.gif", goo2)
+```
+
+* Circular variable needs two splits to create the first two clusters
+  *  An exhaustive search needs to be made
+  *  "Clocking"
+
+--
+
+![](figure/clock3.gif)
+
+---
+## Splitting on a Circular Variable
+.pull-left[
+*  After that, every split creates a new cluster, as in a linear variable
+  *  Having the first two clusters 
+  *  Shift the zero-direction to the "hour" hand, and consider the variable as linear
+* Until the circular variable is split, the clocking keeps occurring
+  
+```{r linearcut, fig.height=2}
+ggplot() +
+  geom_rect(aes(xmin = 0, xmax = 1, ymin = 0, ymax = 0.1), fill = "#f7f7f7") +
+  geom_rect(aes(xmin = 0, xmax = 0.3, ymin = 0, ymax = 0.1), fill = "#998ec3") +
+  scale_x_continuous(limits = c(-0.1, 1.1)) +
+  scale_y_continuous(limits = c(-0.1, 0.2)) +
+  annotate("text", x = c(0, 0.3, 1), y = rep(0.120, 3), label = c(expression(alpha[1]), expression(alpha[3]), expression(alpha[2])), size = 8) +
+  theme_void()
+```
+]
+.pull-right[
+```{r circle}
+tibble(
+  group = c("A", "B", "C"),
+  value = c(50, 35, 15)
+) %>%
+  ggplot(aes(x = "", y = value, fill = factor(group))) + 
+  geom_bar(stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_y_continuous(breaks = c(0, 15, 50),
+                     labels = c(expression(alpha[1]), expression(alpha[3]), expression(alpha[2]))) +
+  theme(panel.border = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.title = element_blank(),
+        legend.position = "none",
+        axis.text = element_text(size = rel(1.5))) +
+  scale_fill_brewer(palette = "PuOr")
+```
+]
+
+---
+## Monothetic Clustering on the Antarctica Data Set
+```{r pcp4, out.width="48%", fig.show='hold', fig.width=10, fig.height = 10, dev.args = list(pointsize = 20)}
+sol42008 <- readRDS("../supportingCode/circular/cluster4_200807070714.rds")
+plot(sol42008, cols=matchcolor(cluster.lst = sol42008$centroids$cname,COLOR4), rel.loc.x = FALSE, cex=1)
+pcp.gg(wind.sensit.bin.2008, "WDIR", c("WDIR", "has.sensit", "WS"), 
+       sol42008, COLOR4,
+       shift = pi/4+0.6, labelsize = 8) +
+  theme_Tan() +
+  theme(text = element_text(size = 24))
+```
+
+
+---
+## Parallel Coordinates Plot for Circular Variable
+
+* Inspired by `r TextCite(bib, "Will2016")`'s writing project
+```{r pcp, fig.width=10, fig.height=7, out.width="90%", fig.align='center'}
+pcp.gg(wind.sensit.bin.2008, "WDIR", c("WDIR", "has.sensit", "WS"), 
+       sol42008, COLOR4,
+       shift = pi/4+0.6, labelsize = 6) +
+  theme_Tan() +
+  theme(text = element_text(size = 16))
+```
+
+???
+
+Ellipses keep the most important characteristics: beginning coincides with the end
+
+---
+## A Closer Look
+
+* 25.78 < WDIR < 229.9  and WDIR >= 229.9 WDIR < 25.78
+* Winds came from the East/South-East (up-valley sea breezes) and winds came from the West (down-valley föhn winds)
+
+```{r pcp5, fig.width=10, fig.height=7, out.width="70%", fig.align='center'}
+pcp.gg(wind.sensit.bin.2008, "WDIR", c("WDIR", "has.sensit", "WS"), 
+       sol42008, c("#e41a1c", "#e41a1c", "#4daf4a", "#4daf4a"),
+       shift = pi/4+0.6, labelsize = 6, show.medoids = FALSE) +
+  theme_Tan() +
+  theme(text = element_text(size = 16))
+```
+
+
+???
+1. Wind direction has the strongest influence in splitting
+2. Wind from the west (föhn wind) is strong and contains particles, winds from the east (sea) were weak and most of them don't have particles.
+
+
+---
+## A Closer Look
+
+* Winds from the West, has particles or does not have particles
+
+```{r pcp6, fig.width=10, fig.height=7, out.width="70%", fig.align='center'}
+pcp.gg(wind.sensit.bin.2008, "WDIR", c("WDIR", "has.sensit", "WS"), 
+       sol42008, c("#ffffff", "#ffffff", "#4daf4a", "#984ea3"),
+       shift = pi/4+0.6, labelsize = 6, show.medoids = FALSE) +
+  theme_Tan() +
+  theme(text = element_text(size = 16))
+```
+
+???
+
+Strong down-valley fohn wind
+
+---
+## A Closer Look
+
+* Winds from the east, split at wind speed
+* Stronger winds come directly from the east (and some had particles), winds coming from the south-east and south were very weak.
+
+```{r pcp7, fig.width=10, fig.height=7, out.width="70%", fig.align='center'}
+pcp.gg(wind.sensit.bin.2008, "WDIR", c("WDIR", "has.sensit", "WS"), 
+       sol42008, c("#e41a1c", "#377eb8", "#ffffff", "#ffffff"),
+       shift = pi/4+0.6, labelsize = 6, show.medoids = FALSE) +
+  theme_Tan() +
+  theme(text = element_text(size = 16))
+```
+
+???
+
+DIRECTLY EAST - stronger
+
+OTHER - weak: FROM THE TOP TO BOTTOM OF glacier
+
+---
+## Summary of Chapter 3
+
+* Data sets with circular variables have interesting directional information that
+are useful in many applications
+
+* Monothetic clustering works with mixed variables including circular variables, using Gower's dissimilarity, without losing their natural characteristics
+
+* Visualizations are important to assist in interpretation
+
+* Parallel coordinates plot depicting circular variables as ellipses retain most features of the variables
+
+* Monothetic clustering results provided interesting results of the Antarctic particle count data
+  * Explored the multivariate relationships between three variables
+
+???
+
+Focus: Last two bullet points
+
+---
+
+```{r loadfunctional, echo = FALSE}
+north2018 <- read_csv(file = "../supportingCode/functional/data/N_seaice_extent_daily_v3.0.csv")
+
+north <- north2018[-1,] %>% 
+  dplyr::select(Year, Month, Day, Extent) %>%
+  mutate(Year = parse_double(Year),
+         Month = parse_double(Month),
+         Day = parse_double(Day),
+         Extent = parse_double(Extent)) %>%
+  mutate(yday = yday(make_date(Year, Month, Day))) %>%
+  dplyr::select(Year, yday, Extent)
+
+# Problematic years
+problems <- c(1978, 1987, 1988, 2019)
+
+# 1982 1990 2006 2018
+withheld_years <- c(1982, 1990, 2006, 2018)
+
+# Add some data before and after the current years to avoid overfitting at ends,
+# adding 30 days before and after. On the way, I trimmed the days of year to 365.
+
+north.tails <- north %>%
+  filter(yday %in% 1:365) %>%
+  filter(yday < 30 | yday > 336) %>%
+  mutate(Year = ifelse(yday < 60, Year - 1, Year + 1)) %>%
+  mutate(yday = ifelse(yday > 60, yday - 365, yday + 365))
+
+north.extra <- north %>%
+  bind_rows(north.tails) %>%
+  arrange(Year, yday)
+
+north.extra <- north.extra %>%
+  filter(!(Year %in% problems),
+         !(Year %in% withheld_years))
+
+year.lst <- unique(north.extra[["Year"]])
+predicted.mat <- readRDS("../supportingCode/functional/data/predicted.mat.rds")
+predicted.extent <- as.vector(t(predicted.mat))
+new.arctic.full <- tibble(Extent = predicted.extent, 
+                          Year = rep(year.lst, each = 366), 
+                          yday = rep(1:366, length(year.lst)))
+
+Jan<-c(1,31)
+Feb<-c(31,59)
+Mar<-c(59,90)
+Apr<-c(90,120)
+May<-c(120,151)
+Jun<-c(151,181)
+Jul<-c(181,212)
+Aug<-c(212,243)
+Sep<-c(243,273)
+Oct<-c(273,304)
+Nov<-c(304,334)
+Dec<-c(334,365)
+
+intervals<-rbind(Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec)
+
+```
+# Chapter 4: Clustering Functional Data
+## Arctic Sea Ice Extent Data
+
+* [Let's take another trip!](https://earth.google.com/web/@67.57267405,0,63.26811229a,18163707.40617422d,35y,0h,0t,0r/data=ChIaEAoIL20vMDk3MzgYASABKAI)
+
+* Arctic Sea ice extent data set has been collected by National Snow & Ice Data Center since November 1978 `r Citep(bib, "NSIDC2018")`
+
+```{r sat, fig.height=4, fig.width=8, out.width="80%", fig.align='center'}
+ggplot(north) + 
+  geom_linerange(aes(x = yday, ymin=Year-0.2, ymax = Year+0.2), 
+                 size=0.5, color = "red") +
+  scale_y_continuous(breaks = seq(1980, 2020, by = 5), minor_breaks = NULL) +
+  xlab("Day") + ylab("Year")
+```
+
+???
+
+1987 change
+
+---
+
+## Raw Arctic Ice Extent
+
+```{r iceextent, fig.width=10, fig.height=6, out.width="100%"}
+ggplot(north) + 
+  geom_line(aes(x = yday, y = Extent, group = Year, color=Year)) +
+  xlab("Day") + ylab("Arctic Ice Extent (mils of sq km2)") +
+  scale_x_continuous(breaks = unique(as.vector(intervals)), minor_breaks = NULL) +
+  geom_vline(xintercept = unique(as.vector(intervals)), linetype="dashed", color = "darkblue") +
+  annotate("text", x=mean(intervals[1,]), y=5, label="Jan") +
+  annotate("text", x=mean(intervals[2,]),y=5, label="Feb") +
+  annotate("text", x=mean(intervals[3,]),y=5, label="Mar") +
+  annotate("text", x=mean(intervals[4,]),y=5, label="Apr") +
+  annotate("text", x=mean(intervals[5,]),y=5, label="May") +
+  annotate("text", x=mean(intervals[6,]),y=15, label="Jun") +
+  annotate("text", x=mean(intervals[7,]),y=15, label="Jul") +
+  annotate("text", x=mean(intervals[8,]),y=15, label="Aug") +
+  annotate("text", x=mean(intervals[9,]),y=15, label="Sep") +
+  annotate("text", x=mean(intervals[10,]),y=15, label="Oct") +
+  annotate("text", x=mean(intervals[11,]),y=15, label="Nov") +
+  annotate("text", x=mean(intervals[12,]),y=15, label="Dec") +
+  scale_color_continuous(breaks = c(1978, 2018))
+```
+
+???
+
+Decreasing trend AND seasonal, dip...
+
+---
+## Functional Data
+
+* When measurements were taken over some ordered index, such as time, frequency, or space `r Citep(bib, "Ramsay2005")`
+  * Responses are continuous as a function of the index
+  * Possibly high frequency of observations and smooth underlying process or observations
+  
+* Observations are converted to functional data using basis functions:
+  * **B-splines basis**, Fourier basis, Wavelets, etc.
+  
+* Penalized B-splines with knots at every day optimized with cross-validation for each curve
+
+* Ice extent area in a year can be expressed as a function of time, $y_i(t)$
+  * where $i$ is the year, $t$ is the day of year, and $y$ is the ice extent at that time point
+
+---
+
+## Smoothed and Interpolated Curves
+
+```{r smootheny, fig.width=10, fig.height=6}
+small.year <- c(1980, 2010)
+north.nomissing <- north %>%
+  filter(!(Year %in% problems))
+new.arctic.small <- new.arctic.full %>%
+  filter(Year %in% small.year)
+raw.arctic.small <- north.nomissing %>%
+  filter(Year %in% small.year)
+
+combined.small <- bind_rows(raw.arctic.small, new.arctic.small) %>%
+  mutate(smooth = c(rep("Unsmoothed", nrow(raw.arctic.small)), rep("Smoothed", nrow(new.arctic.small)))) %>%
+  mutate(smooth = factor(smooth, levels=c("Unsmoothed", "Smoothed")))
+
+ggplot(combined.small, aes(x = yday, y = Extent, group = interaction(Year, smooth), color=factor(Year))) + 
+  geom_line() +
+  geom_point(size = 1) +
+  labs(x = "Day", 
+       y = "Arctic Ice Extent (mils of sq km2)",
+       color = "Year") +
+  facet_grid(smooth ~  .)
+```
+
+???
+
+Penalized B-splines with knots at every day to optimized for **each curve**
+
+---
+
+## Clustering Functional Data
+
+* The $L_2$ distance matrix can be be calculated and used for non-functional clustering algorithms
+    $$d(y_i, y_j) = \sqrt{\int_T [y_i(t) – y_j(t)]^2 dt}$$
+
+* Monothetic clustering uses functional data in their discretized form
+  * Transform the data into functional presentations
+  * Data are then estimated to a common fine grid of $t$, $y_{it}$ from $y_i(t)$
+  * Missing values are imputed and the data set is balanced with $t = 1, \ldots, 366$ days for all years
+
+---
+## Monothetic Clustering Result
+
+* Evaluate functional data for each year, cluster years 
+    using the 366 "variables" (days) each year
+* Splitting the data based on one variable (day) at a time
+* Have to deal with many equivalent splits possible at "neighboring" 
+    variables    
+    
+```{r monosplit, out.width="50%", fig.show='hold', fig.height=6, fig.width=8}
+# Do the 
+new.arctic <- data.frame(predicted.mat)
+rownames(new.arctic) <- as.character(unique(north.extra$Year))
+colnames(new.arctic) <- as.character(1:366)
+
+out4 <- MonoClust(new.arctic, nclusters=4, digits = 2)
+# tree.with.p <- perm.test(out4, new.arctic)
+colorbr <- RColorBrewer::brewer.pal(n = 4, name = "PuOr")
+plot(out4, cols = colorbr)
+
+maxvalue <- max(new.arctic.full$Extent)
+minvalue <- min(new.arctic.full$Extent)
+
+splits <- tibble(x = c(1, 1, 186, 186, 210, 210),
+                 y = c(13.37, 13.37, 10.56, 10.56, 7.03, 7.03),
+                 yend = c(minvalue, maxvalue, 6, maxvalue, minvalue, 14),
+                 order = c(4, 7, 6, 7, 4, 5))
+
+years <- unique(north.extra$Year)
+medoids.years.mono <- years[out4$medoids]
+
+dataplot <- new.arctic.full %>%
+  filter(Year %in% unique(north.extra$Year)) %>%
+  mutate(group = rep(out4$Membership, each = 366))
+
+ggplot(dataplot) + 
+  geom_line(aes(x = yday, y = Extent, group = Year, color=factor(group)), 
+            size = 0.5, alpha = 0.4) +
+  geom_line(data = dataplot %>% filter(Year %in% medoids.years.mono),
+            aes(x = yday, y = Extent, group = Year, color=factor(group)), size = 1) +
+  geom_segment(data = splits, 
+               aes(x = x, xend = x, y = y, 
+                   yend = yend, color = factor(order)),
+               size = 1) +
+  labs(x = "Day",
+       y = "Arctic Ice Extent (mils of sq km2)",
+       color = "Cluster") +
+  scale_x_continuous(breaks = unique(as.vector(intervals)), minor_breaks = NULL) +
+  scale_color_brewer(palette="PuOr",
+                     labels = c("Low in Jan, low in Jul",
+                                  "Low in Jan, high in Jul",
+                                  "High in Jan, low in Jul",
+                                  "High in Jan, high in Jul")) +
+  guides(colour = guide_legend(nrow = 2)) +
+  annotate("text", x=mean(intervals[1,]), y=10, label="Primary split") +
+  annotate("text", x=mean(intervals[7,]), y=13, label="Secondary splits") +
+  annotate("text", x=mean(intervals[1,]), y=5, label="Jan", alpha = 0.5) +
+  annotate("text", x=mean(intervals[7,]), y=15, label="Jul", alpha = 0.5)# +
+  #coord_polar()
+```
+
+???
+
+* Reason: because so smooth, close points have same info
+* Plot: High Jan, Low Jan, then High/low July and High/low July
+
+---
+## Partitioning Using Local Subregions
+
+* By aggregating over regions of time, we develop a new clustering 
+    algorithm related to monothetic clustering that is more suited to 
+    functional data
+* PULS recursively bi-partitions functional data using only groups 
+    from subregions.
+* For each subregion $[a_1, b_1], \ldots, [a_R, b_R]$, calculate an $L_2$ 
+    distance matrix
+    $$d_R(y_i, y_j) = \sqrt{\int_{a_r}^{b_r} [y_i(t) – y_j(t)]^2 dt},$$
+* Apply a clustering algorithm (PAM, Ward's method, etc.) to create 
+    2-group cluster solutions in $R$ subregions
+* Pick the solution that maximizes the difference in the global inertia 
+* Recursively apply to the newly created clusters
+    
+---
+## Partitioning Using Local Subregions Result
+
+```{r step6}
+
+#Build common argval fd object from predicted.mat
+NBASIS <- 300
+NORDER <- 4
+y<-t(predicted.mat)
+splinebasis <- create.bspline.basis(rangeval=c(1, 366),nbasis=NBASIS,norder=NORDER)
+fdParobj<-fdPar(fdobj=splinebasis,Lfdobj=2,lambda=.000001) # No need for any more smoothing
+yfd.full<-smooth.basis(argvals=1:366, y=y, fdParobj=fdParobj)
+
+yfd.train<-yfd.full
+```
+
+```{r pulssplit, out.width="50%", fig.show='hold', fig.height=6, fig.width=8}
+PULS4.pam <- PULS(toclust.fd=yfd.train$fd,intervals=intervals,nclusters=4,method = "pam")
+plot(PULS4.pam, cols = colorbr[c(3,4,1,2)])
+
+medoids.years.puls <- unique(north.extra$Year)[PULS4.pam$frame$medoid[4:7]]
+colnames(yfd.train$y) <- unique(north.extra$Year)
+dataplot.temp <- as_tibble(yfd.train$y) 
+
+dataplot <- dataplot.temp %>%
+  gather(key = Year, value = Extent) %>%
+  mutate(group = rep(PULS4.pam$Membership, each = 366),
+         yday = rep(1:366, length(unique(north.extra$Year))))
+
+ggplot(dataplot) + 
+  geom_line(aes(x = yday, y = Extent, group = Year, color=factor(group)), 
+            size = 0.5, alpha = 0.4) +
+  geom_line(data = dataplot %>% filter(Year %in% medoids.years.puls),
+            aes(x = yday, y = Extent, group = Year, color=factor(group)), size = 1) +
+  labs(x = "Day",
+       y = "Arctic Ice Extent (mils of sq km2)") +
+  scale_x_continuous(breaks = unique(as.vector(intervals)), minor_breaks = NULL) +
+  scale_color_brewer(palette="PuOr") +
+  theme(legend.position = "none") +
+  annotate("rect", xmin = 181, xmax = 243, ymin=minvalue, ymax = maxvalue, alpha = 0.2, fill = "gray") +
+  annotate("text", x=mean(intervals[7,]), y=15, label="Jul", alpha = 0.5) +
+  annotate("text", x=mean(intervals[8,]), y=15, label="Aug", alpha = 0.5) #+
+  #coord_polar()
+```
+
+---
+## Comparison of Results and Cluster Prediction
+
+```{r compare}
+clustertab <- tibble(Name = c("High Jan, High Jul",
+                              "High Jan, High Jul",
+                              "High Jan, Low Jul",
+                              "High Jan, Low Jul",
+                              "Low Jan, High Jul",
+                              "Low Jan, Low Jul"),
+  PULS = c("1979-.red[**1981**], 1983-1984,",
+                              "1986, 1989, 1992, 1994, 1996",
+                              "1985, 1991, 1993, 1995,", 
+                              ".red[**1997**]-2004",
+                              "2005, 2008-2010, .red[**2013**], 2014",
+                              "2007, .red[**2011**], 2012, 2015-2017"),
+                     MonoClust = c("1979-1981, 1983-1986, 1989,", 
+                                   "1992-.red[**1994**], 1996",
+                               "1991, 1995,", 
+                               "1997-.red[**2000**]-2004",
+                               "2005, 2008-2010, .red[**2013**], 2014",
+                               "2007, .red[**2011**], 2012, 2015-2017")
+                     )
+
+clustertab %>%
+  kable(escape = F) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+???
+
+* Medoid year in bold
+* Very similar, last two clusters are identical
+* 1985, 1993 (1) to (PULS 2)
+
+--
+
+* One year in each decade was randomly withheld from the test data set: 
+  * `r paste(withheld_years, collapse=", ")`
+* Predict the cluster from monothetic clustering's splitting rule tree
+
+```{r sortin}
+# 1982 --> high high
+y1982 <- north %>%
+  filter(Year %in% 1982,
+         yday %in% c(2, 186, 210)) %>%
+  mutate(Observed = paste0("Day", yday, " = ", Extent)) %>%
+  group_by(Year) %>%
+  summarize("Observed Extent" = paste(Observed, collapse = "; "))
+
+# 1990 --> high low
+y1990 <- north %>%
+  filter(Year %in% 1990,
+         yday %in% c(1, 186, 210)) %>%
+  mutate(Observed = paste0("Day", yday, " = ", Extent)) %>%
+  group_by(Year) %>%
+  summarize("Observed Extent" = paste(Observed, collapse = "; "))
+
+# 2006 --> low high
+y2006 <- north %>%
+  filter(Year %in% 2006,
+         yday %in% c(1, 186, 210)) %>%
+  mutate(Observed = paste0("Day", yday, " = ", Extent)) %>%
+  group_by(Year) %>%
+  summarize("Observed Extent" = paste(Observed, collapse = "; "))
+
+# 2018 --> low low
+y2018 <- north %>%
+  filter(Year %in% 2018,
+         yday %in% c(1, 186, 210)) %>%
+  mutate(Observed = paste0("Day", yday, " = ", Extent)) %>%
+  group_by(Year) %>%
+  summarize("Observed Extent" = paste(Observed, collapse = "; "))
+
+bind_rows(y1982, y1990, y2006, y2018) %>%
+  mutate(Cluster = c("High Jan, High Jul",
+                     "High Jan, Low Jul",
+                     "Low Jan, High Jul",
+                     "Low Jan, Low Jan")) %>%
+  select(Cluster, Year) %>%
+  spread(key = Cluster, value = Year) %>%
+  kable()
+```
+
+???
+
+* Monothetic clustering has clear rule so can predict
+
+---
+
+## Simulation Study
+* Compare the performance of various clustering techniques on functional data
+  * True functional curves with index (time) ranges from 0 to 100
+  * Identical except for 50-70 interval
+  * White noise are added
+* Monothetic clustering, PAM, and Ward's method on a fine grid at each 0.5 unit, $Q = 200$
+* PULS with PAM and PULS with Ward's method on distance matrix calculated by $L_2$ on functions on five subregions
+  
+```{r simulcurves, results='hide', fig.width=10, fig.height=4}
+fda_data <- readRDS("../supportingCode/functional/fda_data_sample.RDS")
+trueCluster <- readRDS("../supportingCode/functional/fda_trueClust.RDS")
+
+# plot(fda_data$fd, col=trueCluster, xlab = "t", ylab = "y(t)")
+
+library(stringr)
+str_locate("aaa12xxx", "[0-9]+")
+#      start end
+# [1,]     4   5
+str_extract("aaa12xxx", "[0-9]+")
+
+fda_data$fd$coefs %>%
+  as_tibble() %>%
+  mutate(time = seq(0, 100.5, by = 0.5)) %>%
+  gather(key = "x", value = "y", -time) %>%
+  mutate(x.num = as.numeric(str_extract(x, "[0-9]+")),
+         truecluster = trueCluster[x.num]) %>%
+  ggplot(aes(x = time, y = y, group = x, col = factor(truecluster))) +
+  geom_line(alpha = 0.75) +
+  scale_x_continuous(breaks = seq(0, 100, 20), limits = c(0, 100)) +
+  scale_color_brewer(palette = "Dark2") +
+  theme(panel.grid.major.x =  element_line(color = "black", linetype = "dashed")) +
+  labs(color = "True clusters")
+```
+---
+## Simulation Study Results: Corrected Rand Index
+
+* Rand Index `r Citep(bib, "Rand1971")` is a measure of agreement between two cluster solutions
+
+* Corrected Rand index `r Citep(bib, "Hubert1985")` is corrected for agreement by chance, bounded between 0 and 1
+
+```{r rand, fig.height=3, fig.width=10}
+result.rand.tt <- read_csv("../supportingCode/functional/g1_rand_sigma2_1_tt.csv")
+result.pr2.tt <- read_csv("../supportingCode/functional/g1_pr2_sigma2_1_tt.csv")
+
+result.rand.mg <- read_csv("../supportingCode/functional/g1_rand_sigma2_1_mg.csv")
+result.pr2.mg <- read_csv("../supportingCode/functional/g1_pr2_sigma2_1_mg.csv")
+
+result.rand <- bind_rows(result.rand.tt, result.rand.mg)[,-1]
+result.pr2 <- bind_rows(result.pr2.tt, result.pr2.mg)[,-1]
+
+result.rand %>%
+  rename("PULS/PAM" = 1, "PULS/Ward" = 2, "PAM" = 3, 
+         "Ward" = 4, "Monothetic" = 5) %>%
+  gather(key = variable, value = value) %>%
+  ggplot(aes(x = variable, y=value, fill = variable)) + 
+  geom_violin(scale = "width", alpha = 0.5, size = 0.5) +
+  geom_point(alpha = 0.1, position = position_jitter(width = 0.1, height = 0), size = 0.5) +
+  stat_summary(fun.y = "mean", aes(ymin=..y.., ymax=..y..),
+               geom="errorbar", width=0.8, size = 1, color = "red") +
+  scale_x_discrete(limits = c("PAM", "Ward", "Monothetic", "PULS/PAM", "PULS/Ward")) +
+  # ylim(0, 1) +
+  labs(x = "Clustering techniques", y = "Adjusted Rand index") +
+  scale_fill_brewer(palette = "Paired") +
+  guides(fill = FALSE)
+```
+
+* Corrected Rand index:
+  * PULS and monothetic clustering both perform better than PAM and competitive with Ward's method
+  * Ward's method works well both within PULS and by itself
+  
+  
+
+---
+## Simulation Study Results: Pseudo-R2
+* Pseudo-R2 measures the explained variation of the data set
+
+```{r pr2, fig.height=3, fig.width=10}
+result.pr2 %>%
+  rename("PULS/PAM" = 1, "PULS/Ward" = 2, "PAM" = 3, 
+         "Ward" = 4, "Monothetic" = 5) %>%
+  gather(key = variable, value = value) %>%
+  ggplot(aes(x = variable, y=value, fill = variable)) + 
+  geom_violin(scale = "width", alpha = 0.5, width = 0.3, size = 0.5) +
+  geom_point(alpha = 0.1, position = position_jitter(width = 0.1, height = 0), size = 0.5) +
+  stat_summary(fun.y = "mean", aes(ymin=..y.., ymax=..y..),
+               geom="errorbar", width=0.8, size = 1, color = "red") +
+  scale_x_discrete(limits = c("PAM", "Ward", "Monothetic", "PULS/PAM", "PULS/Ward")) +
+  # ylim(0, 1) +
+  labs(x = "Clustering techniques", y = "Pseudo-R2") +
+  scale_fill_brewer(palette = "Paired") +
+  guides(fill = FALSE)
+```
+
+
+* Pseudo-R2:
+  * There is limited evidence of differences across the methods
+  * On average, monothetic clustering explained the most variance in the data
+  * Two methods in PULS have similar performance with Ward's slightly better
+
+---
+
+# Chapter 5: R Packages and Vignette
+* Monothetic clustering and PULS are implemented in the **MonoClust** and **PULS** R packages published on Github
+* Packages' documentation and vignette are available
+* Most of the calculations and plots shown are done with the two packages
+
+--
+
+## MonoClust
+
+* Inherit the object structure and borrow the tree output from the **rpart** package for classification and regression trees `r Citep(bib, c("Breiman1984", "rpart2018"))`
+* Search for the best split is done by exhaustive search: the global optimum is guaranteed but slow when sample size and/or number of variables are large
+
+--
+
+## PULS
+
+* Take a functional data object `r Citep(bib, "fda2018", before = "from **fda**, ")` as input
+* Many functions and contents are borrowed from **MonoClust**
+
+---
+
+# Chapter 6: Conclusions and Future Extensions
+
+* Monothetic clustering bi-partitions data at the values of one variable at a time
+
+  * Clusters share the same characteristics from split variables
+  * Can interpret the resulting clusters
+  * Can predict the cluster a new observation would fall into
+
+--
+
+* The hybrid methods for choosing the number of clusters improve the ability to choose a reasonable number of clusters, including one cluster solution
+  * Worked in the simulation study of monothetic clustering, and could be used in other tree-based clustering techniques
+
+--
+
+* Monothetic clustering algorithm has been shown to work with data with mixed types of variables, including circular variables
+
+* PULS was based on monothetic clustering and designed to work directly with functional data
+
+---
+## Future Extensions
+
+* Hybrid method using hypothesis test could be extended to hierarchical clustering
+
+* A dissimilarity measure of circular variables based on trigonometric transformation should be examined and compared
+
+* Exhaustive search is slow, heuristic search algorithms may help with some trade-offs
+  * Results of best split for each variable could be stored so they won't unnecessarily repeat
+
+* Sparse clustering `r Citep(bib, "Witten2010")` can be applied to functional data to "weight" the contributions of variables (days) to the clustering process
+
+* PULS could be applied to non-functional data with known "grouped" variables to detect the underlying structure of data.
+  * Potential: ratio of proteins in MS patients (mentioned in Chapter 1)
+  
+* Clustering the derivative of the Arctic ice extent data
+
+---
+## Future Extensions
+
+
+* The Arctic ice extent data: treat the functional data as periodic (circular) data
+
+```{r icecirpuls, fig.width=10, out.width="80%"}
+# Data are from the output of "pulssplit" chunk in functional.Rnw
+icepuls <- dataplot
+maxvalue <- max(icepuls$Extent)
+minvalue <- min(icepuls$Extent)
+ggplot(icepuls) + 
+  geom_line(aes(x = yday, y = Extent, group = Year, color=factor(group)), 
+            size = 0.5, alpha = 0.4) +
+  geom_line(data = icepuls %>% filter(Year %in% medoids.years.puls),
+            aes(x = yday, y = Extent, group = Year, color=factor(group)), size = 1) +
+  labs(x = "Day",
+       y = "Arctic Ice Extent (mils of sq km2)") +
+  scale_x_continuous(breaks = unique(as.vector(intervals)), minor_breaks = NULL) +
+  scale_y_continuous(limits = c(0, maxvalue)) +
+  scale_color_brewer(palette="PuOr") +
+  theme(legend.position = "none") +
+  annotate("rect", xmin = 181, xmax = 243, ymin=minvalue, ymax = maxvalue, alpha = 0.2, fill = "gray") +
+  annotate("text", x=mean(intervals[7,]), y=15, label="Jul", alpha = 0.5) +
+  annotate("text", x=mean(intervals[8,]), y=15, label="Aug", alpha = 0.5) +
+  coord_polar()
+```
+
+???
+
+SPIRAL
+
+---
+# Acknowledgement
+
+* Dr. Mark Greenwood for the guidance and patience
+
+* Brian McGuire, Garland Will
+
+* Dr. Megan Higgs and Dr. Lillian Lin and SCRS (funded by MT INBRE, CAIRHE, AI-AN CTRP, MW CTR-IN)
+
+* Department of Mathematical Sciences's Gary Sackett Fellowship and Travel Grant
+
+* The Vietnam Education Foundation
+
+* My PhD Committee Members:
+  * Dr. Mark Greenwood
+  * Dr. John Borkowski
+  * Dr. Laura Hildreth
+  * Dr. Megan Higgs, and 
+  * Dr. Nicole Carnegie
+
+--
+
+
+
+
+* ...And my parents, my loving wife and son, who just overcame jet lag several days ago
+---
+
+## That's It!
+
+![](figure/Ngo.gif)
+
+---
+
+## References I
+
+```{r, results='asis', echo=FALSE}
+PrintBibliography(bib, .opts = list(max.names = 99), start = 1, end = 5)
+```
+
+---
+
+## References II
+
+```{r, results='asis', echo=FALSE}
+PrintBibliography(bib, .opts = list(max.names = 99), start = 6, end = 11)
+```
+
+---
+## References III
+
+```{r, results='asis', echo=FALSE}
+PrintBibliography(bib, .opts = list(max.names = 99), start = 12, end = 16)
+```
+
+---
+## References IV
+
+```{r, results='asis', echo=FALSE}
+PrintBibliography(bib, .opts = list(max.names = 99), start = 17, end = 25)
+```
+
+---
+# Appendix
+
+* Table of Simulation Study 2a
+
+```{r sim2ab}
+data1 %>% 
+  mutate(freq = freq/500) %>%
+  spread(key = count, value = freq) %>%
+  kable()
+```
+
+---
+# Appendix
+
+* Table of Simulation Study 2b
+
+```{r sim2b}
+data2 %>% 
+  mutate(freq = freq/500) %>%
+  spread(key = count, value = freq) %>%
+  kable()
+```
+  
+---
+# Appendix
+
+* Ever wonder how many clusters the hybrid method suggested?
+
+```{r csf, out.width="50%", fig.show="hold", fig.width=6, fig.height=6, fig.align='center'}
+ggplot(health.2.ratio, aes(x = `SL004672/SL003322`, 
+                           y = `SL000467/SL004857`,
+                           color = health$current_ms)) + 
+  geom_point(aes(shape = health$current_ms), size=2) + 
+  scale_color_manual(guide = F, values = brewer2[2:1]) + 
+  scale_shape_discrete(name = "Disease condition", solid = F) +
+  labs(title = "k-means on CSF data",
+       x = "log(SL004672/SL003322)",
+       y = "log(SL000467/SL004857)")
+```
+
+---
+# Appendix
+
+* The permutation hypothesis test by shuffling variable using F statistic with $B = 100)$ shows $p = 0.001$
+  * It suggests that this data set needs at least 2 clusters
+* CH's pseudo-F shows this table
+
+```{r appendix, eval = FALSE}
+health <- read_csv("../supportingCode/presentation/data/DataForTan_12052017.csv")
+health.2.ratio <- health %>%
+  select(3, 4) %>% mutate_all(log) %>% mutate_all(scale) %>% mutate_all(as.numeric)
+
+health.2.ratio.mono <- data.frame(health.2.ratio)
+colnames(health.2.ratio.mono) <- c("rat1", "rat2")
+mono.health.2 <- MonoClust(health.2.ratio.mono, nclusters = 2)
+mono.health.2.perm <- perm.test(mono.health.2, data = health.2.ratio.mono, 
+                                method = 2, rep = 1000)
+mono.health.2.perm
+
+ch <- numeric(0)
+
+for (k in 2:10) {
+  tree <- MonoClust(health.2.ratio.mono, nclusters = k)
+  stats <- cluster.stats(tree$Dist, tree$Membership)
+  ch <- c(ch, stats$ch)
+}
+
+ch.max <- which(ch == max(ch)) + 1 # The first value is 2 clusters
+ch.max # 2
+
+tibble::enframe(ch) %>%
+  mutate(name = 2:10) %>%
+  rename(`Number of clusters` = name) %>%
+  spread(key = `Number of clusters`, value = value) %>%
+  kable("markdown")
+```
+
+|        2|        3|        4|        5|        6|        7|       8|        9|       10|
+|--------:|--------:|--------:|--------:|--------:|--------:|-------:|--------:|--------:|
+| 167.5055| 161.0543| 154.7617| 151.6537| 153.9777| 151.9183| 152.344| 154.3431| 155.4007|
+
+* This method chooses $K = 2$ cluster solution
+* Ever wonder: which clustering method has the best prediction?
+
+|name    |      rand|
+|:-------|---------:|
+|k-means | 0.5488889|
+|Ward's  | 0.4971429|
+|mono    | 0.4360317|
+
+```{r randcompare, eval=F}
+membership <- tibble(kmeans = kmeans.membership,
+                     hclust = hclust.mem.health,
+                     mono = mono.mem.2,
+                     ms = ifelse(health$current_ms == "ms", 1, 2))
+
+require(flexclust)
+rand.kmeans <- randIndex(membership$kmeans, membership$ms)
+rand.hclust <- randIndex(membership$hclust, membership$ms)
+rand.mono <- randIndex(membership$mono, membership$ms)
+
+tibble(name = c("k-means", "hclust", "mono"),
+       rand = c(rand.kmeans, rand.hclust, rand.mono)) %>%
+  kable("markdown")
+
+```

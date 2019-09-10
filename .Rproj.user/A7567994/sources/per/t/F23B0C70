@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1567965236728.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3749577491",
+    "id" : "F23B0C70",
+    "lastKnownWriteTime" : 1567995617,
+    "last_content_update" : 1567995617725,
+    "path" : "C:/Users/vinht/Box Sync/Studying/PD2019/Merck/Presentation/index.Rmd",
+    "project_path" : "index.Rmd",
+    "properties" : {
+        "chunk_output_type" : "console",
+        "cursorPosition" : "945,3",
+        "scrollLine" : "922"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}
